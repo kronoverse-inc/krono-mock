@@ -282,7 +282,7 @@ app.post('/channel/:loc', async (req, res, next) => {
     }
 });
 
-app.get('/:realm/:agentId', (req, res) => {
+app.get('/agents/:realm/:agentId', (req, res) => {
     const agent = agents.get(req.params.agentId);
     if(!agent) throw new NotFound();
     res.json(agent);
