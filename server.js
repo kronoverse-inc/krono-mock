@@ -171,6 +171,7 @@ app.get('/spent/:loc', async (req, res, next) => {
 app.get('/fund/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
+        console.log('FUND:', address);
         const { satoshis } = req.query;
         const ts = Date.now();
         const forge = new Forge({
