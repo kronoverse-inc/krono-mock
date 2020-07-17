@@ -32,36 +32,6 @@ function indexJig(jig) {
     events.emit('jig', jig);
 }
 
-// events.on('txn', async (tx) => {
-//     if (!tx.outputs[0].script.isSafeDataOut()) {
-//         return;
-//     }
-
-//     await Promise.all(tx.outputs.map(async (o, vout) => {
-//         if (!o.script.isPublicKeyHashOut()) return;
-//         const loc = `${tx.hash}_o${vout}`;
-//         const jig = await run.load(loc).catch((e) => {
-//             if (e.message.includes('not a run tx') ||
-//                 e.message.includes('not a jig output') ||
-//                 e.message.includes('Not a token')
-//             ) return;
-//             console.error('Load error:', e.message);
-//         });
-//         if (!jig) return;
-//         console.log('JIG:', jig.constructor.name, jig.location);
-//         const index = jigs.push({
-//             location: jig.location,
-//             kind: jig.constructor.origin || '',
-//             type: jig.constructor.name,
-//             origin: jig.origin,
-//             owner: jig.owner,
-//             ts: Date.now(),
-//             isOrigin: jig.location === jig.origin
-//         });
-//         events.emit('jig', index - 1);
-//     }));
-// });
-
 let initialized;
 function setInitializer(initializer) {
     initialized = initializer;
@@ -77,6 +47,10 @@ app.use(express.json());
 events.on('jig', (jig) => io.emit('jig', jig));
 events.on('utxo', (utxo) => io.emit('utxo', utxo));
 events.on('channel', (channel) => io.emit('channel', channel));
+
+app.use((req, res, next) => {
+    console.log('REQ:', req.url);
+});
 
 app.get('/', (req, res) => {
     res.json(true);
