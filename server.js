@@ -219,7 +219,6 @@ app.get('/channel/:loc', async (req, res, next) => {
     }
 });
 
-
 app.post('/channel/:loc', async (req, res, next) => {
     try {
         const ts = Date.now();
@@ -227,7 +226,7 @@ app.post('/channel/:loc', async (req, res, next) => {
         const { rawtx } = req.body;
         const tx = new Tx().fromBr(new Br(Buffer.from(rawtx, 'hex')));
 
-        const txOutMap = new TxOutMap();
+        // const txOutMap = new TxOutMap();
 
         const inputs = await Promise.all(tx.txIns.map(async (txIn, i) => ({
             address: new Address().fromTxInScript(txIn.script).toString(),
@@ -238,21 +237,21 @@ app.post('/channel/:loc', async (req, res, next) => {
 
         const idInput = inputs.find(i => i.loc === loc);
 
-        await Promise.all(tx.txIns.map(async (txIn, i) => {
-            const outTxId = new Br(txIn.txHashBuf).readReverse().toString('hex');
-            const loc = `${outTxId}_o${txIn.txOutNum}`;
-            const out = unspent.get(loc)
-            if (!out) throw new Error(`Input missing: ${i} ${outTxId}-${txIn.txOutNum}`);
-            const txOut = new TxOut({ valueBn: new Bn(out.satoshis, 10) });
-            txOut.setScript(new Script().fromBuffer(Buffer.from(out.script, 'hex')));
-            txOutMap.set(txIn.txHashBuf, txIn.txOutNum, txOut);
-        }));
-        const verifier = new TxVerifier(tx, txOutMap);
+        // await Promise.all(tx.txIns.map(async (txIn, i) => {
+        //     const outTxId = new Br(txIn.txHashBuf).readReverse().toString('hex');
+        //     const loc = `${outTxId}_o${txIn.txOutNum}`;
+        //     const out = unspent.get(loc)
+        //     if (!out) throw new Error(`Input missing: ${i} ${outTxId}-${txIn.txOutNum}`);
+        //     const txOut = new TxOut({ valueBn: new Bn(out.satoshis, 10) });
+        //     txOut.setScript(new Script().fromBuffer(Buffer.from(out.script, 'hex')));
+        //     txOutMap.set(txIn.txHashBuf, txIn.txOutNum, txOut);
+        // }));
+        // const verifier = new TxVerifier(tx, txOutMap);
 
-        if (!idInput || !idInput.valid) throw new Forbidden();
-        await Promise.all(inputs.map(async (input, i) => {
-            input.valid = await verifier.asyncVerifyNIn(i);
-        }));
+        // if (!idInput || !idInput.valid) throw new Forbidden();
+        // await Promise.all(inputs.map(async (input, i) => {
+        //     input.valid = await verifier.asyncVerifyNIn(i);
+        // }));
 
         const to = tx.txOuts
             .filter(txOut => txOut.script.isPublicKeyHashOut())
