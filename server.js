@@ -48,10 +48,10 @@ events.on('jig', (jig) => io.emit('jig', jig));
 events.on('utxo', (utxo) => io.emit('utxo', utxo));
 events.on('channel', (channel) => io.emit('channel', channel));
 
-app.use((req, res, next) => {
-    console.log('REQ:', req.url);
-    next();
-});
+// app.use((req, res, next) => {
+//     console.log('REQ:', req.url);
+//     next();
+// });
 
 app.get('/', (req, res) => {
     res.json(true);
