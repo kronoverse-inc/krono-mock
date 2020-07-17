@@ -30,7 +30,6 @@ const jigs = new Map();
 function indexJig(jig) {
     jigs.set(jig.location, jig);
     events.emit('jig', jig);
-    io.emit('jig', jig);
 }
 
 // events.on('txn', async (tx) => {
@@ -75,7 +74,9 @@ app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
 
-events.on('jig', (jig) => io.emit('jig', jig))
+events.on('jig', (jig) => io.emit('jig', jig));
+events.on('utxo', (utxo) => io.emit('utxo', utxo));
+events.on('channel', (channel) => io.emit('channel', channel));
 
 app.get('/', (req, res) => {
     res.json(true);
@@ -222,7 +223,6 @@ app.get('/fund/:address', async (req, res, next) => {
                 ts
             };
             events.emit('utxo', utxo);
-            io.emit('utxo', utxo);
             unspent.set(loc, utxo);
         });
 
@@ -301,7 +301,6 @@ app.post('/channel/:loc', async (req, res, next) => {
 
         channels.set(loc, channel);
         events.emit('channel', channel);
-        io.emit('channel', channel);
         res.json(true);
     } catch (e) {
         next(e);
