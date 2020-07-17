@@ -304,6 +304,23 @@ app.post('/:agentId/event/:event', async (req, res, next) => {
     }
 });
 
+app.post('/:agentId/submit', async (req, res, next) => {
+    try {
+        const { agentId, event } = req.params;
+
+        const action = {
+            ...req.body,
+            event: req.body.name,
+            agentId,
+            ts: Date.now()
+        };
+        events.emit('act', action);
+        res.json(true);
+    } catch (e) {
+        next(e);
+    }
+});
+
 app.get('/jig/:loc', async (req, res, next) => {
     try {
         // const jig = await run.load(req.params.loc)
