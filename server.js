@@ -197,8 +197,8 @@ app.get('/fund/:address', async (req, res, next) => {
                 satoshis: txOut.valueBn.toNumber(),
                 ts
             };
-            events.emit('utxo', utxo);
             unspent.set(loc, utxo);
+            events.emit('utxo', utxo);
         });
 
         res.json(true);
@@ -288,15 +288,14 @@ app.get('/agents/:realm/:agentId', (req, res) => {
     res.json(agent);
 });
 
-app.post('/:agentId/submit', async (req, res, next) => {
+app.post('/:agentId/event/:event', async (req, res, next) => {
     try {
-        const { agentId } = req.params;
-        const { address } = agents.get(agentId);
-        if (!address) throw new NotFound();
+        const { agentId, event } = req.params;
 
         const action = {
             ...req.body,
-            address,
+            agentId,
+            event,
             ts: Date.now()
         };
         events.emit('act', action);
