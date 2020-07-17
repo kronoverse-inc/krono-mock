@@ -50,6 +50,7 @@ events.on('channel', (channel) => io.emit('channel', channel));
 
 app.use((req, res, next) => {
     console.log('REQ:', req.url);
+    next();
 });
 
 app.get('/', (req, res) => {
