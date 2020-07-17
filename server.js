@@ -254,7 +254,7 @@ app.post('/channel/:loc', async (req, res, next) => {
         // }));
 
         const to = tx.txOuts
-            .filter(txOut => txOut.script.isPublicKeyHashOut())
+            .filter(txOut => txOut.script.isPubKeyHashOut())
             .map((txOut) => new Address().fromTxOutScript(txOut.script).toString());
 
         const seq = idInput.seq;
