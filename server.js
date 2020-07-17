@@ -306,7 +306,7 @@ app.post('/:agentId/event/:event', async (req, res, next) => {
 
 app.post('/:agentId/submit', async (req, res, next) => {
     try {
-        const { agentId, event } = req.params;
+        const { agentId } = req.params;
 
         const action = {
             ...req.body,
