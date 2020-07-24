@@ -6,6 +6,7 @@ const http = require('http');
 const createError = require('http-errors');
 const { Forbidden, HttpError, NotFound } = createError;
 const { Forge } = require('txforge');
+const { SignedMessage } = require('krono-tools/lib/signed-message');
 
 const agents = new Map();
 const events = new EventEmitter();
