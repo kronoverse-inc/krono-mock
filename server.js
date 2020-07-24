@@ -48,10 +48,11 @@ io.on('connection', socket => {
         console.log(`${address} listening`);
     });
  });
-// app.use((req, res, next) => {
-//     console.log('REQ:', req.url);
-//     next();
-// });
+ 
+app.use((req, res, next) => {
+    console.log('REQ:', req.url);
+    next();
+});
 
 app.get('/', (req, res) => {
     res.json(true);
@@ -289,7 +290,7 @@ app.post('/jigs/origin/:origin', async (req, res, next) => {
     }
 });
 
-app.get('/message/:id', async (req, res, next) => {
+app.get('/messages/:id', async (req, res, next) => {
     try {
         const { id } = req.params;
         const message = messges.get(id);
@@ -301,8 +302,9 @@ app.get('/message/:id', async (req, res, next) => {
     }
 });
 
-app.post('/message', async (req, res, next) => {
+app.post('/messages', async (req, res, next) => {
     try {
+        console.log('MESSAGE:', req.body);
         const message = new SignedMessage(req.body);
         // TODO: verify message sig
         messages.set(message.hash, message);
