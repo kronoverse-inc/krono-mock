@@ -39,7 +39,13 @@ io.on('connection', socket => {
         // TODO: Verify message
         socket.join(message.from);
         console.log(`${message.from} listening`);
-    })
+    });
+
+    socket.on('address', (address) => {
+        // TODO: Verify message
+        socket.join(address);
+        console.log(`${address} listening`);
+    });
  });
 // app.use((req, res, next) => {
 //     console.log('REQ:', req.url);
