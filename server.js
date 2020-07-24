@@ -29,8 +29,8 @@ const jigs = new Map();
 const messages = new Map();
 const paymails = new Map();
 function indexJig(jigData) {
-    jigs.set(jig.location, jigData);
-    io.to(`${jig.owner}@cryptofights`).emit('jig', jigData);
+    jigs.set(jigData.location, jigData);
+    io.to(`${jigData.owner}@cryptofights`).emit('jig', jigData);
 }
 
 let initialized;
