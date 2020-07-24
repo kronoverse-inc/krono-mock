@@ -7,11 +7,6 @@ const createError = require('http-errors');
 const { Forbidden, HttpError, NotFound } = createError;
 const { Forge } = require('txforge');
 
-const Run = require('krono-tools/lib/run');
-const { RestBlockchain } = require('krono-tools/lib/rest-blockchain');
-
-
-
 const agents = new Map();
 const events = new EventEmitter();
 events.setMaxListeners(100);
@@ -21,17 +16,9 @@ const spends = new Map();
 const jigs = new Map();
 const messages = new Map();
 const paymails = new Map();
-
-let processCount = 0;
-async function addToQueue(process, label = 'process') {
-    const count = processCount++;
-    // console.time(`${count}-${label}`);
-    const queuePromise = queue.then(process);
-    queue = queuePromise
-        .catch(e => console.error('Queue error', label, e.message, e.stack))
-    // .then(() => console.timeEnd(`${count}-${label}`));
-
-    return queuePromise;
+function indexJig(jigData) {
+    jigs.set(jigData.location, jigData);
+    io.to(`${jigData.owner}@cryptofights`).emit('jig', jigData);
 }
 
 let initialized;
@@ -53,7 +40,7 @@ io.on('connection', socket => {
         socket.join(message.from);
         console.log(`${message.from} joined`);
     })
-});
+ });
 // app.use((req, res, next) => {
 //     console.log('REQ:', req.url);
 //     next();
@@ -328,37 +315,6 @@ async function listen(port) {
             if (err) return reject(err);
             console.log(`App listening on port ${port}`);
             console.log('Press Ctrl+C to quit.');
-            const apiUrl = `http://localhost:${port}`;
-            const blockchain = new RestBlockchain(apiUrl, 'mock');
-            const run = new Run({
-                network: 'mock',
-                blockchain
-            });
-            events.on('utxo', (utxo) => {
-                // console.log('UTXO');
-                addToQueue(async () => {
-                    const jig = await run.load(utxo.loc).catch(e => {
-                        if (e.message.includes('not a run tx') ||
-                            e.message.includes('not a jig output') ||
-                            e.message.includes('Not a token')
-                        ) return;
-                        throw e;
-                    });
-                    if (!jig) return;
-                    // console.log('JIG:', jig.constructor.name, jig.location);
-                    const jigData = {
-                        location: jig.location,
-                        kind: jig.constructor && jig.constructor.origin,
-                        type: jig.constructor.name,
-                        origin: jig.origin,
-                        owner: jig.owner,
-                        ts: Date.now(),
-                        isOrigin: jig.location === jig.origin
-                    };
-                    jigs.set(jigData.location, jigData);
-                    io.to(`${jigData.owner}@cryptofights`).emit('jig', jigData);
-                }, `utxo-${utxo.loc}`);
-            })
             resolve();
         })
     })
@@ -367,6 +323,7 @@ async function listen(port) {
 module.exports = {
     agents,
     events,
+    indexJig,
     listen,
     setInitializer
 }
