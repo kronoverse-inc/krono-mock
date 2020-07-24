@@ -25,12 +25,12 @@ events.setMaxListeners(100);
 const txns = new Map();
 const unspent = new Map();
 const spends = new Map();
-const channels = new Map();
 const jigs = new Map();
 const messages = new Map();
-function indexJig(jig) {
-    jigs.set(jig.location, jig);
-    events.emit('jig', jig);
+const paymails = new Map();
+function indexJig(jigData) {
+    jigs.set(jig.location, jigData);
+    io.to(`${jig.owner}@cryptofights`).emit('jig', jigData);
 }
 
 let initialized;
@@ -44,10 +44,6 @@ const io = require('socket.io').listen(server);
 app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
-
-events.on('jig', (jig) => io.emit('jig', jig));
-events.on('utxo', (utxo) => io.emit('utxo', utxo));
-events.on('channel', (channel) => io.emit('channel', channel));
 
 // app.use((req, res, next) => {
 //     console.log('REQ:', req.url);
@@ -103,7 +99,6 @@ app.post('/broadcast', async (req, res, next) => {
         utxos.forEach(async (utxo, i) => {
             spends.set(utxo._id, txid);
             unspent.delete(utxo._id);
-            channels.delete(utxo._id);
         });
 
         tx.txOuts.forEach((txOut, index) => {
@@ -210,118 +205,45 @@ app.get('/fund/:address', async (req, res, next) => {
 });
 
 
-app.get('/channel/:loc', async (req, res, next) => {
-    try {
-        const { loc } = req.params;
-        const channel = channels.get(loc);
-        if (!channel) throw new NotFound();
-        res.json(channel);
-    } catch (e) {
-        next(e);
-    }
-});
-
-app.post('/channel/:loc', async (req, res, next) => {
-    try {
-        const ts = Date.now();
-        const { loc } = req.params;
-        const { rawtx } = req.body;
-        const tx = new Tx().fromBr(new Br(Buffer.from(rawtx, 'hex')));
-
-        // const txOutMap = new TxOutMap();
-
-        const inputs = await Promise.all(tx.txIns.map(async (txIn, i) => ({
-            address: new Address().fromTxInScript(txIn.script).toString(),
-            loc: `${new Br(txIn.txHashBuf).readReverse().toString('hex')}_o${txIn.txOutNum}`,
-            seq: txIn.nSequence,
-            valid: false
-        })));
-
-        const idInput = inputs.find(i => i.loc === loc);
-
-        // await Promise.all(tx.txIns.map(async (txIn, i) => {
-        //     const outTxId = new Br(txIn.txHashBuf).readReverse().toString('hex');
-        //     const loc = `${outTxId}_o${txIn.txOutNum}`;
-        //     const out = unspent.get(loc)
-        //     if (!out) throw new Error(`Input missing: ${i} ${outTxId}-${txIn.txOutNum}`);
-        //     const txOut = new TxOut({ valueBn: new Bn(out.satoshis, 10) });
-        //     txOut.setScript(new Script().fromBuffer(Buffer.from(out.script, 'hex')));
-        //     txOutMap.set(txIn.txHashBuf, txIn.txOutNum, txOut);
-        // }));
-        // const verifier = new TxVerifier(tx, txOutMap);
-
-        // if (!idInput || !idInput.valid) throw new Forbidden();
-        // await Promise.all(inputs.map(async (input, i) => {
-        //     input.valid = await verifier.asyncVerifyNIn(i);
-        // }));
-
-        const to = tx.txOuts
-            .filter(txOut => txOut.script.isPubKeyHashOut())
-            .map((txOut) => new Address().fromTxOutScript(txOut.script).toString());
-
-        const seq = idInput.seq;
-        const channel = {
-            loc,
-            seq,
-            rawtx,
-            to,
-            from: inputs.map(i => i.address),
-            parties: Array.from(new Set([
-                ...to,
-                ...inputs.map(i => i.address)
-            ])),
-            locs: inputs.map(i => i.loc),
-            seqs: inputs.map(i => i.seq),
-            ts
-        };
-
-        channels.set(loc, channel);
-        events.emit('channel', channel);
-        res.json(true);
-    } catch (e) {
-        next(e);
-    }
-});
-
 app.get('/agents/:realm/:agentId', (req, res) => {
     const agent = agents.get(req.params.agentId);
     if (!agent) throw new NotFound();
     res.json(agent);
 });
 
-app.post('/:agentId/event/:event', async (req, res, next) => {
-    try {
-        const { agentId, event } = req.params;
+// app.post('/:agentId/event/:event', async (req, res, next) => {
+//     try {
+//         const { agentId, event } = req.params;
 
-        const action = {
-            ...req.body,
-            agentId,
-            event,
-            ts: Date.now()
-        };
-        events.emit('act', action);
-        res.json(true);
-    } catch (e) {
-        next(e);
-    }
-});
+//         const action = {
+//             ...req.body,
+//             agentId,
+//             event,
+//             ts: Date.now()
+//         };
+//         events.emit('act', action);
+//         res.json(true);
+//     } catch (e) {
+//         next(e);
+//     }
+// });
 
-app.post('/:agentId/submit', async (req, res, next) => {
-    try {
-        const { agentId } = req.params;
+// app.post('/:agentId/submit', async (req, res, next) => {
+//     try {
+//         const { agentId } = req.params;
 
-        const action = {
-            ...req.body,
-            event: req.body.name,
-            agentId,
-            ts: Date.now()
-        };
-        events.emit('act', action);
-        res.json(true);
-    } catch (e) {
-        next(e);
-    }
-});
+//         const action = {
+//             ...req.body,
+//             event: req.body.name,
+//             agentId,
+//             ts: Date.now()
+//         };
+//         events.emit('act', action);
+//         res.json(true);
+//     } catch (e) {
+//         next(e);
+//     }
+// });
 
 app.get('/jig/:loc', async (req, res, next) => {
     try {
@@ -379,6 +301,7 @@ app.post('/message', async (req, res, next) => {
         const message = new SignedMessage(req.body);
         // TODO: verify message sig
         messages.set(message.hash, message);
+        message.to.forEach(to => io.to(to).emit('message', message));
         res.json(true);
     } catch (e) {
         next(e);
