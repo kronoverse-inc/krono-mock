@@ -45,6 +45,13 @@ app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
 
+
+io.on('connection', socket => {
+    socket.on('register', (message) => {
+        // TODO: Verify message
+        socket.join(message.from);
+    })
+ });
 // app.use((req, res, next) => {
 //     console.log('REQ:', req.url);
 //     next();
