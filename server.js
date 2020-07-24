@@ -1,5 +1,5 @@
 const cors = require('cors');
-const { Address, Bn, Br, Script, Tx, TxOut, TxOutMap, TxVerifier } = require('bsv');
+const { Address, Bn, Br, Tx } = require('bsv');
 const { EventEmitter } = require('events');
 const express = require('express');
 const http = require('http');
@@ -18,7 +18,7 @@ const messages = new Map();
 const paymails = new Map();
 function indexJig(jigData) {
     jigs.set(jigData.location, jigData);
-    io.to(`${jigData.owner}@cryptofights`).emit('jig', jigData);
+    io.to(jigData.owner).emit('jig', jigData);
 }
 
 let initialized;
@@ -38,7 +38,7 @@ io.on('connection', socket => {
     socket.on('register', (message) => {
         // TODO: Verify message
         socket.join(message.from);
-        console.log(`${message.from} joined`);
+        console.log(`${message.from} listening`);
     })
  });
 // app.use((req, res, next) => {
@@ -112,6 +112,7 @@ app.post('/broadcast', async (req, res, next) => {
             };
             unspent.set(loc, utxo);
             events.emit('utxo', utxo);
+            io.to(utxo.address).emit('utxo', utxo);
         });
 
         res.json(txid);
@@ -192,6 +193,7 @@ app.get('/fund/:address', async (req, res, next) => {
             };
             unspent.set(loc, utxo);
             events.emit('utxo', utxo);
+            io.to(utxo.address).emit('utxo', utxo);
         });
 
         res.json(true);
