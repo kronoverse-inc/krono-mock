@@ -50,6 +50,7 @@ io.on('connection', socket => {
     socket.on('register', (message) => {
         // TODO: Verify message
         socket.join(message.from);
+        console.log(`${message.from} joined`);
     })
  });
 // app.use((req, res, next) => {
