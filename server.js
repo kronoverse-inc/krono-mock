@@ -1,11 +1,11 @@
 const cors = require('cors');
-const { Address, Bn, Br, Script, Tx, TxOut, TxOutMap, TxVerifier } =require('bsv');
-const { EventEmitter } =require('events');
+const { Address, Bn, Br, Script, Tx, TxOut, TxOutMap, TxVerifier } = require('bsv');
+const { EventEmitter } = require('events');
 const express = require('express');
 const http = require('http');
 const createError = require('http-errors');
 const { Forbidden, HttpError, NotFound } = createError;
-const { Forge } =require('txforge');
+const { Forge } = require('txforge');
 
 // const Run = require('@runonbitcoin/release');
 
@@ -27,6 +27,7 @@ const unspent = new Map();
 const spends = new Map();
 const channels = new Map();
 const jigs = new Map();
+const messages = new Map();
 function indexJig(jig) {
     jigs.set(jig.location, jig);
     events.emit('jig', jig);
@@ -284,7 +285,7 @@ app.post('/channel/:loc', async (req, res, next) => {
 
 app.get('/agents/:realm/:agentId', (req, res) => {
     const agent = agents.get(req.params.agentId);
-    if(!agent) throw new NotFound();
+    if (!agent) throw new NotFound();
     res.json(agent);
 });
 
@@ -361,6 +362,29 @@ app.post('/jigs/origin/:origin', async (req, res, next) => {
     }
 });
 
+app.get('/message/:id', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const message = messges.get(id);
+        if (!message) throw new NotFound();
+        res.json(message);
+
+    } catch (e) {
+        next(e);
+    }
+});
+
+app.post('/message', async (req, res, next) => {
+    try {
+        const message = new SignedMessage(req.body);
+        // TODO: verify message sig
+        messages.set(message.hash, message);
+        res.json(true);
+    } catch (e) {
+        next(e);
+    }
+});
+
 app.use((err, req, res, next) => {
     console.error(err.message, err.statusCode !== 404 && err.stack);
     res.status(err.statusCode || 500).send(err.message);
@@ -369,7 +393,7 @@ app.use((err, req, res, next) => {
 async function listen(port) {
     return new Promise((resolve, reject) => {
         server.listen(port, (err) => {
-            if(err) return reject(err);
+            if (err) return reject(err);
             console.log(`App listening on port ${port}`);
             console.log('Press Ctrl+C to quit.');
             resolve();
