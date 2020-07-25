@@ -48,9 +48,11 @@ io.on('connection', socket => {
         console.log(`${address} listening`);
     });
  });
- 
+
 app.use((req, res, next) => {
-    console.log('REQ:', req.url);
+    if(exports.debug) {
+        console.log('REQ:', req.url);
+    }
     next();
 });
 
@@ -331,7 +333,8 @@ async function listen(port) {
     })
 }
 
-module.exports = {
+const exports = {
+    debug: false,
     agents,
     events,
     indexJig,
@@ -339,4 +342,4 @@ module.exports = {
     setInitializer
 }
 
-
+module.exports = exports;
