@@ -333,13 +333,12 @@ async function listen(port) {
     })
 }
 
-const exports = {
+
+module.exports = {
     debug: false,
     agents,
     events,
     indexJig,
     listen,
     setInitializer
-}
-
-module.exports = exports;
+};
