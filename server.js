@@ -266,8 +266,8 @@ app.get('/jigs/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const utxos = Array.from(unspent.values()).filter(utxo => utxo.address === address);
-        const jigs = utxos.map(utxo => jigs.get(utxo.loc)).filter(jig => jig);
-        res.json(jigs);
+        const matching = utxos.map(utxo => jigs.get(utxo.loc)).filter(jig => jig);
+        res.json(matching);
     } catch (e) {
         next(e);
     }
@@ -275,8 +275,8 @@ app.get('/jigs/:address', async (req, res, next) => {
 
 app.post('/jigs/kind/:kind', async (req, res, next) => {
     try {
-        const jigs = Array.from(jigs.values()).filter(jig => jig.kind === req.params.kind);
-        res.json(jigs);
+        const matching = Array.from(jigs.values()).filter(jig => jig.kind === req.params.kind);
+        res.json(matching);
     } catch (e) {
         next(e);
     }
@@ -284,8 +284,8 @@ app.post('/jigs/kind/:kind', async (req, res, next) => {
 
 app.post('/jigs/origin/:origin', async (req, res, next) => {
     try {
-        const jigs = Array.from(jigs.values()).filter(jig => jig.origin === req.params.origin);
-        res.json(jigs);
+        const matching = Array.from(jigs.values()).filter(jig => jig.origin === req.params.origin);
+        res.json(matching);
     } catch (e) {
         next(e);
     }
