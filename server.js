@@ -266,7 +266,8 @@ app.get('/jigs/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const utxos = Array.from(unspent.values()).filter(utxo => utxo.address === address);
-        res.json(Array.from(jigs.values()).filter(jig => utxos.find(utxo => utxo.loc == jig.location)));
+        const jigs = utxos.map(utxo => jigs.get(utxo.loc)).filter(jig => jig);
+        res.json(jigs);
     } catch (e) {
         next(e);
     }
