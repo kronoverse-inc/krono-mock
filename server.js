@@ -50,7 +50,7 @@ io.on('connection', socket => {
  });
 
 app.use((req, res, next) => {
-    if(exports.debug) {
+    if(exp.debug) {
         console.log('REQ:', req.url);
     }
     next();
@@ -332,7 +332,7 @@ async function listen(port) {
 }
 
 
-module.exports = {
+const exp = module.exports = {
     debug: false,
     agents,
     events,
