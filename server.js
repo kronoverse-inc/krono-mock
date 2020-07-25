@@ -275,9 +275,8 @@ app.get('/jigs/:address', async (req, res, next) => {
 
 app.post('/jigs/kind/:kind', async (req, res, next) => {
     try {
-        const locs = Array.from(jigs.values()).filter(jig => jig.kind === req.params.kind)
-            .map(jig => jig.location);
-        res.json(locs);
+        const jigs = Array.from(jigs.values()).filter(jig => jig.kind === req.params.kind);
+        res.json(jigs);
     } catch (e) {
         next(e);
     }
@@ -285,9 +284,8 @@ app.post('/jigs/kind/:kind', async (req, res, next) => {
 
 app.post('/jigs/origin/:origin', async (req, res, next) => {
     try {
-        const locs = Array.from(jigs.values()).filter(jig => jig.origin === req.params.origin)
-            .map(jig => jig.location);
-        res.json(locs);
+        const jigs = Array.from(jigs.values()).filter(jig => jig.origin === req.params.origin);
+        res.json(jigs);
     } catch (e) {
         next(e);
     }
