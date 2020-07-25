@@ -305,7 +305,6 @@ app.get('/messages/:id', async (req, res, next) => {
 
 app.post('/messages', async (req, res, next) => {
     try {
-        console.log('MESSAGE:', req.body);
         const message = new SignedMessage(req.body);
         // TODO: verify message sig
         messages.set(message.hash, message);
