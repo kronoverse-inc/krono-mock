@@ -4,7 +4,7 @@ const { EventEmitter } = require('events');
 const express = require('express');
 const http = require('http');
 const createError = require('http-errors');
-const { Forbidden, HttpError, NotFound } = createError;
+const { NotFound } = createError;
 const { Forge } = require('txforge');
 const { SignedMessage } = require('krono-tools/lib/signed-message');
 
@@ -307,7 +307,7 @@ app.post('/messages', async (req, res, next) => {
     try {
         const message = new SignedMessage(req.body);
         // TODO: verify message sig
-        messages.set(message.hash, message);
+        messages.set(message.id, message);
         message.to.forEach(to => io.to(to).emit('message', message));
         res.json(true);
     } catch (e) {
