@@ -3,18 +3,16 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scripts": {},
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@kronoverse/tools": "^0.2.43",
     "bsv": "^2.0.0-beta.40",
     "cors": "^2.8.5",
     "events": "^3.2.0",
     "express": "^4.17.1",
     "http-errors": "^1.8.0",
-    "krono-tools": "github:kronoverse-inc/krono-tools#paymail",
     "socket.io": "^2.3.0",
     "txforge": "^0.1.7"
   }
