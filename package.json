@@ -1,5 +1,5 @@
 {
-  "name": "krono-mock",
+  "name": "@kronoverse/mock",
   "version": "1.0.1",
   "description": "",
   "main": "server.js",
