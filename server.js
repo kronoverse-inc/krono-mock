@@ -22,11 +22,6 @@ function indexJig(jigData) {
     io.to(jigData.owner).emit('jig', jigData);
 }
 
-let initialized;
-function setInitializer(initializer) {
-    initialized = initializer;
-}
-
 const app = express();
 const server = http.createServer(app);
 const io = require('socket.io').listen(server);
@@ -69,10 +64,9 @@ app.get('/_ah/stop', (req, res) => {
 });
 
 app.get('/initialize', async (req, res, next) => {
-    res.set('Cache-Control', 'no-store')
+    res.set('Cache-Control', 'no-store');
     try {
-        await initialized;
-        res.json(true);
+        res.json(exp.initialized);
         next();
     } catch (e) {
         next(e);
@@ -338,5 +332,5 @@ const exp = module.exports = {
     events,
     indexJig,
     listen,
-    setInitializer
+    initialized: false
 };
