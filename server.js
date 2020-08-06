@@ -274,7 +274,7 @@ app.get('/sse/:channel', async (req, res, next) => {
         "Connection": "keep-alive"
     });
 
-    res.write('retry: 1000\n\n');
+    res.write('retry: 5000\n\n');
 
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
     // const lastId = req.headers['last-event-id'];
