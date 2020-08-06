@@ -19,8 +19,8 @@ const messages = new Map();
 function indexJig(jigData) {
     jigs.set(jigData.location, jigData);
     io.to(jigData.owner).emit('jig', jigData);
+    events.emit('jig', jigData)
 }
-let lastRequest = Date.now();
 
 const app = express();
 const server = http.createServer(app);
@@ -44,7 +44,6 @@ io.on('connection', socket => {
  });
 
 app.use((req, res, next) => {
-    lastRequest = Date.now();
     if(exp.debug) {
         console.log('REQ:', req.url);
     }
@@ -62,10 +61,6 @@ app.get('/_ah/stop', (req, res) => {
 
 app.get('/_ah/warmup', (req, res) => {
     res.json(true);
-});
-
-app.get('/_ah/stop', (req, res) => {
-    process.exit(0);
 });
 
 app.get('/initialize', async (req, res, next) => {
@@ -218,40 +213,6 @@ app.get('/agents/:realm/:agentId', (req, res) => {
     res.json(agent);
 });
 
-// app.post('/:agentId/event/:event', async (req, res, next) => {
-//     try {
-//         const { agentId, event } = req.params;
-
-//         const action = {
-//             ...req.body,
-//             agentId,
-//             event,
-//             ts: Date.now()
-//         };
-//         events.emit('act', action);
-//         res.json(true);
-//     } catch (e) {
-//         next(e);
-//     }
-// });
-
-// app.post('/:agentId/submit', async (req, res, next) => {
-//     try {
-//         const { agentId } = req.params;
-
-//         const action = {
-//             ...req.body,
-//             event: req.body.name,
-//             agentId,
-//             ts: Date.now()
-//         };
-//         events.emit('act', action);
-//         res.json(true);
-//     } catch (e) {
-//         next(e);
-//     }
-// });
-
 app.get('/jig/:loc', async (req, res, next) => {
     try {
         // const jig = await run.load(req.params.loc)
@@ -308,10 +269,49 @@ app.post('/messages', async (req, res, next) => {
         // TODO: verify message sig
         messages.set(message.id, message);
         message.to.forEach(to => io.to(to).emit('message', message));
+        events.emit('message', message);
         res.json(true);
     } catch (e) {
         next(e);
     }
+});
+
+function publish(res, id, event, data) {
+    res.write(`id: ${id}\n`)
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${data}\n\n`);
+}
+
+app.get('/sse/:channel', async (req, res, next) => {
+    const { channel } = req.params;
+    req.socket.setNoDelay(true);
+    const interval = setInterval(() => res.write('data: \n\n'), 15000);
+    
+    function publishJig(jigData) {
+        if(jigData.owner === channel) {
+            publish(res, jigData.ts, 'jig', jigData);
+        }
+    }
+    function publishUtxo(utxo) {
+        if(utxo.address === channel) {
+            publish(res, utxo.ts, 'utxo', utxo);
+        }
+    }
+    function publishMessage(message) {
+        if(message.to.includes(channel)) {
+            publish(res, message.ts, 'message', message);
+        }
+    }
+    events.on('jig', publishJig);
+    events.on('utxo', publishUtxo);
+    events.on('message', publishMessage);
+
+    res.on('close', () => {
+        clearInterval(interval);
+        events.off('jig', publishJig);
+        events.off('utxo', publishUtxo);
+        events.off('message', publishMessage);
+    });
 });
 
 app.use((err, req, res, next) => {
@@ -329,7 +329,6 @@ async function listen(port) {
         })
     })
 }
-
 
 const exp = module.exports = {
     debug: false,
