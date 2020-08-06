@@ -16,11 +16,11 @@ const unspent = new Map();
 const spends = new Map();
 const jigs = new Map();
 const messages = new Map();
-const paymails = new Map();
 function indexJig(jigData) {
     jigs.set(jigData.location, jigData);
     io.to(jigData.owner).emit('jig', jigData);
 }
+let lastRequest = Date.now();
 
 const app = express();
 const server = http.createServer(app);
@@ -44,6 +44,7 @@ io.on('connection', socket => {
  });
 
 app.use((req, res, next) => {
+    lastRequest = Date.now();
     if(exp.debug) {
         console.log('REQ:', req.url);
     }
