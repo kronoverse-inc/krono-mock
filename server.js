@@ -277,12 +277,14 @@ app.post('/messages', async (req, res, next) => {
 });
 
 function publish(res, id, event, data) {
+    console.log('Event:', event, data);
     res.write(`id: ${id}\n`)
     res.write(`event: ${event}\n`);
-    res.write(`data: ${data}\n\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
 app.get('/sse/:channel', async (req, res, next) => {
+    console.log('Subscribed to ', channel);
     const { channel } = req.params;
     req.socket.setNoDelay(true);
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
