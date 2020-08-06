@@ -15,6 +15,8 @@ const txns = new Map();
 const unspent = new Map();
 const spends = new Map();
 const jigs = new Map();
+const messagesByTo = new Map();
+const utxosByAddress = new Map();
 const messages = new Map();
 function indexJig(jigData) {
     jigs.set(jigData.location, jigData);
@@ -81,6 +83,8 @@ app.post('/broadcast', async (req, res, next) => {
         utxos.forEach(async (utxo, i) => {
             spends.set(utxo._id, txid);
             unspent.delete(utxo._id);
+            const userUtxos = utxosByAddress.get(utxo.address);
+            if(userUtxos) userUtxos.delete(utxo._id);
         });
 
         tx.txOuts.forEach((txOut, index) => {
@@ -98,6 +102,10 @@ app.post('/broadcast', async (req, res, next) => {
             };
             unspent.set(loc, utxo);
             events.emit('utxo', utxo);
+            if(!utxosByAddress.has(utxo.address)) {
+                utxosByAddress.set(utxo.address, new Map());
+            }
+            utxosByAddress.get(utxo.address).set(utxo._id, utxo);
         });
 
         res.json(txid);
@@ -120,8 +128,12 @@ app.get('/tx/:txid', async (req, res, next) => {
 app.get('/utxos/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
-        const utxos = Array.from(unspent.values()).filter(utxo => utxo.address === address);
-        res.json(utxos);
+        const userUtxos = utxosByAddress.get(address);
+        if(userUtxos) {
+            res.json(Array.from(userUtxos.values()));
+        } else {
+            res.json([]);
+        }
     } catch (e) {
         next(e);
     }
@@ -177,6 +189,10 @@ app.get('/fund/:address', async (req, res, next) => {
             };
             unspent.set(loc, utxo);
             events.emit('utxo', utxo);
+            if(!utxosByAddress.has(utxo.address)) {
+                utxosByAddress.set(utxo.address, new Map());
+            }
+            utxosByAddress.get(utxo.address).set(utxo._id, utxo);
         });
 
         res.json(true);
@@ -204,9 +220,9 @@ app.get('/jig/:loc', async (req, res, next) => {
 app.get('/jigs/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
-        const utxos = Array.from(unspent.values()).filter(utxo => utxo.address === address);
-        const matching = utxos.map(utxo => jigs.get(utxo.loc)).filter(jig => jig);
-        res.json(matching);
+        if(!utxosByAddress.has(address)) return res.json([]);
+        const locs = Array.from(utxosByAddress.get(address).keys());
+        res.json(locs.map(loc => jigs.get(loc)).filter(jig => jig));
     } catch (e) {
         next(e);
     }
@@ -246,6 +262,12 @@ app.post('/messages', async (req, res, next) => {
     try {
         const message = new SignedMessage(req.body);
         messages.set(message.id, message);
+        message.to.forEach((to) => {
+            if(!messagesByTo.has(to)) {
+                messagesByTo.set(to, new Map());
+            }
+            messagesByTo.get(to).set(message.id, message);
+        })
         events.emit('message', message);
         res.json(true);
     } catch (e) {
@@ -273,8 +295,19 @@ app.get('/sse/:channel', async (req, res, next) => {
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
     const lastId = parseInt(req.headers['last-event-id'], 10);
     if(lastId) {
-        jigs.filter(jig => jig.ts > lastId).forEach(publishJig);
-        Array.from(messages.values()).filter(message => message.ts > lastId).forEach(publishMessage);
+        if(utxosByAddress.has(channel)) {
+            Array.from(utxosByAddress.get(channel).keys()).forEach(loc => {
+                const jig = jigs.get(loc);
+                if(!jig || jig.ts < lastId) return;
+                publishJig(jig);
+            })
+        }
+        if(messagesByTo.has(channel)) {
+            Array.from(messagesByTo.get(channel).values()).forEach(message => {
+                if(message.ts < lastId) return;
+                publishMessage(message);
+            })
+        }
     }
 
     function publishJig(jigData) {
