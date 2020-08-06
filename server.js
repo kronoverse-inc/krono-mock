@@ -259,9 +259,9 @@ app.post('/messages', async (req, res, next) => {
 });
 
 function publish(res, id, event, data) {
-    res.write(`id: ${id}\n`)
     res.write(`event: ${event}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    res.write(`data: ${JSON.stringify(data)}\n`);
+    res.write(`id: ${id}\n\n`);
 }
 
 app.get('/sse/:channel', async (req, res, next) => {
@@ -274,8 +274,11 @@ app.get('/sse/:channel', async (req, res, next) => {
         "Connection": "keep-alive"
     });
 
+    res.write('retry: 1000\n\n');
+
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
-    
+    // const lastId = req.headers['last-event-id'];
+
     function publishJig(jigData) {
         if(jigData.owner === channel) {
             publish(res, jigData.ts, 'jig', jigData);
