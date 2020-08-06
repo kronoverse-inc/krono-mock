@@ -249,9 +249,9 @@ app.get('/messages/:id', async (req, res, next) => {
 app.post('/messages', async (req, res, next) => {
     try {
         const message = new SignedMessage(req.body);
-        // TODO: verify message sig
         messages.set(message.id, message);
         events.emit('message', message);
+        console.log('Posting message');
         res.json(true);
     } catch (e) {
         next(e);
@@ -259,6 +259,7 @@ app.post('/messages', async (req, res, next) => {
 });
 
 function publish(res, id, event, data) {
+    console.log('Publish', id, event, data);
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n`);
     res.write(`id: ${id}\n\n`);
