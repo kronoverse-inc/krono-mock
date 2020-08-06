@@ -284,8 +284,8 @@ function publish(res, id, event, data) {
 }
 
 app.get('/sse/:channel', async (req, res, next) => {
-    console.log('Subscribed to ', channel);
     const { channel } = req.params;
+    console.log('Subscribed to ', channel);
     req.socket.setNoDelay(true);
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
     
