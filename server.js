@@ -29,7 +29,6 @@ app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
 
-
 io.on('connection', socket => {
     socket.on('register', (message) => {
         // TODO: Verify message
@@ -54,6 +53,11 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.json(true);
 });
+
+app.get('/_ah/stop', (req, res) => {
+    req.json(true);
+    process.exit(0);
+})
 
 app.get('/_ah/warmup', (req, res) => {
     res.json(true);
