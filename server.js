@@ -294,16 +294,19 @@ app.get('/sse/:channel', async (req, res, next) => {
             publish(res, jigData.ts, 'jig', jigData);
         }
     }
+
     function publishUtxo(utxo) {
         if(utxo.address === channel) {
             publish(res, utxo.ts, 'utxo', utxo);
         }
     }
+
     function publishMessage(message) {
         if(message.to.includes(channel)) {
             publish(res, message.ts, 'message', message);
         }
     }
+
     events.on('jig', publishJig);
     events.on('utxo', publishUtxo);
     events.on('message', publishMessage);
@@ -313,6 +316,7 @@ app.get('/sse/:channel', async (req, res, next) => {
         events.off('jig', publishJig);
         events.off('utxo', publishUtxo);
         events.off('message', publishMessage);
+        console.log('Closing subscription', channel);
     });
 });
 
