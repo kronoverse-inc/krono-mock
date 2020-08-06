@@ -277,7 +277,11 @@ app.get('/sse/:channel', async (req, res, next) => {
     res.write('retry: 1000\n\n');
 
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
-    // const lastId = req.headers['last-event-id'];
+    const lastId = parseInt(req.headers['last-event-id'], 10);
+    if(lastId) {
+        jigs.filter(jig => jig.ts > lastId).forEach(publishJig);
+        messages.filter(message => message.ts > lastId).forEach(publishMessage);
+    }
 
     function publishJig(jigData) {
         if(jigData.owner === channel) {
