@@ -81,10 +81,10 @@ app.post('/broadcast', async (req, res, next) => {
         txns.set(txid, rawtx);
         events.emit('txn', txid);
         utxos.forEach(async (utxo, i) => {
-            spends.set(utxo._id, txid);
-            unspent.delete(utxo._id);
+            spends.set(utxo.loc, txid);
+            unspent.delete(utxo.loc);
             const userUtxos = utxosByAddress.get(utxo.address);
-            if(userUtxos) userUtxos.delete(utxo._id);
+            if(userUtxos) userUtxos.delete(utxo.loc);
         });
 
         tx.txOuts.forEach((txOut, index) => {
@@ -105,7 +105,7 @@ app.post('/broadcast', async (req, res, next) => {
             if(!utxosByAddress.has(utxo.address)) {
                 utxosByAddress.set(utxo.address, new Map());
             }
-            utxosByAddress.get(utxo.address).set(utxo._id, utxo);
+            utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
         });
 
         res.json(txid);
@@ -188,11 +188,11 @@ app.get('/fund/:address', async (req, res, next) => {
                 ts
             };
             unspent.set(loc, utxo);
-            events.emit('utxo', utxo);
             if(!utxosByAddress.has(utxo.address)) {
                 utxosByAddress.set(utxo.address, new Map());
             }
-            utxosByAddress.get(utxo.address).set(utxo._id, utxo);
+            utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
+            events.emit('utxo', utxo);
         });
 
         res.json(true);
