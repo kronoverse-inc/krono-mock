@@ -280,7 +280,7 @@ app.get('/sse/:channel', async (req, res, next) => {
     const lastId = parseInt(req.headers['last-event-id'], 10);
     if(lastId) {
         jigs.filter(jig => jig.ts > lastId).forEach(publishJig);
-        messages.filter(message => message.ts > lastId).forEach(publishMessage);
+        Array.from(messages.values()).filter(message => message.ts > lastId).forEach(publishMessage);
     }
 
     function publishJig(jigData) {
