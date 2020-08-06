@@ -18,7 +18,6 @@ const jigs = new Map();
 const messages = new Map();
 function indexJig(jigData) {
     jigs.set(jigData.location, jigData);
-    io.to(jigData.owner).emit('jig', jigData);
     events.emit('jig', jigData)
 }
 
@@ -28,20 +27,6 @@ const io = require('socket.io').listen(server);
 app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
-
-io.on('connection', socket => {
-    socket.on('register', (message) => {
-        // TODO: Verify message
-        socket.join(message.from);
-        console.log(`${message.from} listening`);
-    });
-
-    socket.on('address', (address) => {
-        // TODO: Verify message
-        socket.join(address);
-        console.log(`${address} listening`);
-    });
- });
 
 app.use((req, res, next) => {
     if(exp.debug) {
@@ -116,7 +101,6 @@ app.post('/broadcast', async (req, res, next) => {
             };
             unspent.set(loc, utxo);
             events.emit('utxo', utxo);
-            io.to(utxo.address).emit('utxo', utxo);
         });
 
         res.json(txid);
@@ -197,7 +181,6 @@ app.get('/fund/:address', async (req, res, next) => {
             };
             unspent.set(loc, utxo);
             events.emit('utxo', utxo);
-            io.to(utxo.address).emit('utxo', utxo);
         });
 
         res.json(true);
@@ -268,7 +251,6 @@ app.post('/messages', async (req, res, next) => {
         const message = new SignedMessage(req.body);
         // TODO: verify message sig
         messages.set(message.id, message);
-        message.to.forEach(to => io.to(to).emit('message', message));
         events.emit('message', message);
         res.json(true);
     } catch (e) {
@@ -277,7 +259,6 @@ app.post('/messages', async (req, res, next) => {
 });
 
 function publish(res, id, event, data) {
-    console.log('Event:', event, data);
     res.write(`id: ${id}\n`)
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
