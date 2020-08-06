@@ -298,7 +298,7 @@ app.get('/sse/:channel', async (req, res, next) => {
 
     function publishMessage(message) {
         if(message.to.includes(channel)) {
-            publish(res, message.ts, 'message', message);
+            publish(res, message.ts, 'msg', message);
         }
     }
 
