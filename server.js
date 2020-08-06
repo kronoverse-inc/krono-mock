@@ -287,6 +287,12 @@ app.get('/sse/:channel', async (req, res, next) => {
     const { channel } = req.params;
     console.log('Subscribed to ', channel);
     req.socket.setNoDelay(true);
+    res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-store; no-cache; max-age=0; stale-while-revalidate=0; stale-if-error=0",
+        "Connection": "keep-alive"
+    });
+
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
     
     function publishJig(jigData) {
