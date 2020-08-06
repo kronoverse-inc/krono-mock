@@ -29,9 +29,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
-    if(exp.debug) {
-        console.log('REQ:', req.url);
-    }
+    if(exp.debug) console.log('REQ:', req.url);
     next();
 });
 
@@ -78,7 +76,6 @@ app.post('/broadcast', async (req, res, next) => {
         // const verifier = new TxVerifier(tx, txOutMap);
         // if (!verifier.verify()) throw createError(422, 'Validation failed');
 
-        console.log('TX', txid);
         txns.set(txid, rawtx);
         events.emit('txn', txid);
         utxos.forEach(async (utxo, i) => {
@@ -152,7 +149,6 @@ app.get('/spent/:loc', async (req, res, next) => {
 app.get('/fund/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
-        console.log('FUND:', address);
         const { satoshis } = req.query;
         const ts = Date.now();
         const forge = new Forge({
@@ -251,7 +247,6 @@ app.post('/messages', async (req, res, next) => {
         const message = new SignedMessage(req.body);
         messages.set(message.id, message);
         events.emit('message', message);
-        console.log('Posting message');
         res.json(true);
     } catch (e) {
         next(e);
@@ -259,7 +254,6 @@ app.post('/messages', async (req, res, next) => {
 });
 
 function publish(res, id, event, data) {
-    console.log('Publish', id, event, data);
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n`);
     res.write(`id: ${id}\n\n`);
@@ -267,7 +261,6 @@ function publish(res, id, event, data) {
 
 app.get('/sse/:channel', async (req, res, next) => {
     const { channel } = req.params;
-    console.log('Subscribed to ', channel);
     req.socket.setNoDelay(true);
     res.writeHead(200, {
         "Content-Type": "text/event-stream",
@@ -311,7 +304,6 @@ app.get('/sse/:channel', async (req, res, next) => {
         events.off('jig', publishJig);
         events.off('utxo', publishUtxo);
         events.off('message', publishMessage);
-        console.log('Closing subscription', channel);
     });
 });
 
