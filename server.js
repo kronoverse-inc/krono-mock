@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
 
 app.get('/_ah/stop', (req, res) => {
     res.json(true);
-    process.exit(0);
+    events.emit('shutdown');
 })
 
 app.get('/_ah/warmup', (req, res) => {
@@ -51,7 +51,6 @@ app.get('/initialize', async (req, res, next) => {
     res.set('Cache-Control', 'no-store');
     try {
         res.json(exp.initialized);
-        next();
     } catch (e) {
         next(e);
     }
@@ -199,7 +198,6 @@ app.get('/fund/:address', async (req, res, next) => {
         next(e);
     }
 });
-
 
 app.get('/agents/:realm/:agentId', (req, res) => {
     const agent = agents.get(req.params.agentId);
