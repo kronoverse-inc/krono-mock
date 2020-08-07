@@ -25,7 +25,6 @@ function indexJig(jigData) {
 
 const app = express();
 const server = http.createServer(app);
-const io = require('socket.io').listen(server);
 app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
@@ -276,6 +275,7 @@ app.post('/messages', async (req, res, next) => {
 });
 
 function publish(res, id, event, data) {
+    if(exp.debug) console.log('EVENT:', id, event, JSON.stringify(data));
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n`);
     res.write(`id: ${id}\n\n`);
