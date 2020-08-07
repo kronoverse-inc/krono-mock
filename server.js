@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/_ah/stop', (req, res) => {
-    req.json(true);
+    res.json(true);
     process.exit(0);
 })
 
