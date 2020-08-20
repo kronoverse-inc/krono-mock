@@ -354,11 +354,16 @@ async function listen(port) {
     })
 }
 
+async function close() {
+    server.close();
+}
+
 const exp = module.exports = {
     debug: false,
     agents,
     events,
     indexJig,
     listen,
+    close,
     initialized: false
 };
