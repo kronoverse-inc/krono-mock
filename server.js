@@ -15,7 +15,7 @@ const txns = new Map();
 const unspent = new Map();
 const spends = new Map();
 const jigs = new Map();
-const messagesByTo = new Map();
+const messagesByChannel = new Map();
 const utxosByAddress = new Map();
 const messages = new Map();
 function indexJig(jigData) {
@@ -260,10 +260,16 @@ app.post('/messages', async (req, res, next) => {
         const message = new SignedMessage(req.body);
         messages.set(message.id, message);
         message.to.forEach((to) => {
-            if(!messagesByTo.has(to)) {
-                messagesByTo.set(to, new Map());
+            if(!messagesByChannel.has(to)) {
+                messagesByChannel.set(to, new Map());
             }
-            messagesByTo.get(to).set(message.id, message);
+            messagesByChannel.get(to).set(message.id, message);
+        });
+        messages.context.forEach(context => {
+            if(!messagesByChannel.has(context)) {
+                messagesByChannel.set(context, new Map());
+            }
+            messagesByChannel.get(context).set(message.id, message);
         })
         events.emit('message', message);
         res.json(true);
@@ -291,7 +297,7 @@ app.get('/sse/:channel', async (req, res, next) => {
     res.write('retry: 1000\n\n');
 
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
-    const lastId = parseInt(req.headers['last-event-id'], 10);
+    const lastId = parseInt(req.headers['last-event-id'] || req.query.lastEventId, 10);
     if(lastId) {
         if(utxosByAddress.has(channel)) {
             Array.from(utxosByAddress.get(channel).keys()).forEach(loc => {
@@ -300,8 +306,8 @@ app.get('/sse/:channel', async (req, res, next) => {
                 publishJig(jig);
             })
         }
-        if(messagesByTo.has(channel)) {
-            Array.from(messagesByTo.get(channel).values()).forEach(message => {
+        if(messagesByChannel.has(channel)) {
+            Array.from(messagesByChannel.get(channel).values()).forEach(message => {
                 if(message.ts < lastId) return;
                 publishMessage(message);
             })
