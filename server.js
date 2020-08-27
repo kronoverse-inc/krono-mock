@@ -11,7 +11,7 @@ const Run = require('@kronoverse/tools/lib/run');
 const { RestBlockchain } = require('@kronoverse/tools/lib/rest-blockchain');
 const { SignedMessage } = require('@kronoverse/tools/lib/signed-message');
 
-const { PORT } = process.env;
+const { PORT } = process.env.PORT || 8082;
 const agents = new Map();
 const events = new EventEmitter();
 events.setMaxListeners(100);
@@ -377,6 +377,7 @@ app.use((err, req, res, next) => {
 
 async function listen() {
     return new Promise((resolve, reject) => {
+        const PORT = process.env.PORT || 8082;
         server.listen(PORT, (err) => {
             if (err) return reject(err);
             console.log(`App listening on port ${PORT}`);
@@ -394,7 +395,6 @@ const exp = module.exports = {
     debug: false,
     agents,
     events,
-    indexJig,
     listen,
     close,
     initialized: false,
