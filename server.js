@@ -11,7 +11,6 @@ const Run = require('@kronoverse/tools/lib/run');
 const { RestBlockchain } = require('@kronoverse/tools/lib/rest-blockchain');
 const { SignedMessage } = require('@kronoverse/tools/lib/signed-message');
 
-const { PORT } = process.env.PORT || 8082;
 const agents = new Map();
 const events = new EventEmitter();
 events.setMaxListeners(100);
@@ -26,7 +25,7 @@ const network = 'mock';
 const purse = 'cVCMJJPrh2ayqQ2625nDaw72f9FrzssGpaCPaTgL8cfdHBnsKBWi';
 const owner = 'cNsH7M3EnyS2eNkAG9cqG99nTNGuu9Ssun48iPzGg5MBMMPAivRd';
 
-const apiUrl = `http://localhost:${PORT}`;
+const apiUrl = `http://localhost:${process.env.PORT || 8082}`;
 const blockchain = new RestBlockchain(apiUrl, network);
 const run = new Run({
     network,
