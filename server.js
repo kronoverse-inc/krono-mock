@@ -1,11 +1,14 @@
 const cors = require('cors');
-const { Address, Bn, Br, Tx } = require('bsv');
+const { Address, Br, Tx } = require('bsv');
 const { EventEmitter } = require('events');
 const express = require('express');
 const http = require('http');
 const createError = require('http-errors');
 const { NotFound } = createError;
 const { Forge } = require('txforge');
+
+const Run = require('@kronoverse/tools/lib/run');
+const { RestBlockchain } = require('@kronoverse/tools/lib/rest-blockchain');
 const { SignedMessage } = require('@kronoverse/tools/lib/signed-message');
 
 const agents = new Map();
@@ -15,12 +18,54 @@ const txns = new Map();
 const unspent = new Map();
 const spends = new Map();
 const jigs = new Map();
-const messagesByChannel = new Map();
 const utxosByAddress = new Map();
 const messages = new Map();
-function indexJig(jigData) {
-    jigs.set(jigData.location, jigData);
-    events.emit('jig', jigData)
+
+const network = 'mock';
+const purse = 'cVCMJJPrh2ayqQ2625nDaw72f9FrzssGpaCPaTgL8cfdHBnsKBWi';
+const owner = 'cNsH7M3EnyS2eNkAG9cqG99nTNGuu9Ssun48iPzGg5MBMMPAivRd';
+
+const blockchain = new RestBlockchain(apiUrl, network);
+const run = new Run({
+    network,
+    blockchain,
+    owner,
+    purse
+});
+
+events.on('utxo', (utxo) => {
+    addToQueue(async () => {
+        const jig = await run.load(utxo.loc).catch(e => {
+            if (e.message.includes('not a run tx') ||
+                e.message.includes('not a jig output') ||
+                e.message.includes('Not a token')
+            ) return;
+            throw e;
+        });
+        if (!jig) return;
+        console.log('JIG:', jig.constructor.name, jig.location);
+        const jigData = {
+            location: jig.location,
+            kind: jig.constructor && jig.constructor.origin,
+            type: jig.constructor.name,
+            origin: jig.origin,
+            owner: jig.owner,
+            ts: Date.now(),
+            isOrigin: jig.location === jig.origin
+        };
+        jigs.set(jigData.location, jigData);
+        publishEvent(jigData.owner, 'jig', jigData);
+        publishEvent(jigData.kind, 'jig', jigData);
+        publishEvent(jigData.origin, 'jig', jigData);
+    }, `utxo-${utxo.loc}`);
+});
+
+const channels = new Map();
+function publishEvent(channel, event, data) {
+    if(!channels.has(channel)) channels.set(channel, new Map());
+    const id = Date.now();
+    channels.get(channel).set(id, {event, data});
+    events.emit(channel, {id, event, data});
 }
 
 const app = express();
@@ -30,7 +75,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
-    if(exp.debug) console.log('REQ:', req.url);
+    if (exp.debug) console.log('REQ:', req.url);
     next();
 });
 
@@ -77,12 +122,11 @@ app.post('/broadcast', async (req, res, next) => {
         // if (!verifier.verify()) throw createError(422, 'Validation failed');
 
         txns.set(txid, rawtx);
-        events.emit('txn', txid);
         utxos.forEach(async (utxo, i) => {
             spends.set(utxo.loc, txid);
             unspent.delete(utxo.loc);
             const userUtxos = utxosByAddress.get(utxo.address);
-            if(userUtxos) userUtxos.delete(utxo.loc);
+            if (userUtxos) userUtxos.delete(utxo.loc);
         });
 
         tx.txOuts.forEach((txOut, index) => {
@@ -99,11 +143,11 @@ app.post('/broadcast', async (req, res, next) => {
                 ts
             };
             unspent.set(loc, utxo);
-            events.emit('utxo', utxo);
-            if(!utxosByAddress.has(utxo.address)) {
+            if (!utxosByAddress.has(utxo.address)) {
                 utxosByAddress.set(utxo.address, new Map());
             }
             utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
+            publishEvent(utxo.address, 'utxo', utxo);
         });
 
         res.json(txid);
@@ -127,7 +171,7 @@ app.get('/utxos/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const userUtxos = utxosByAddress.get(address);
-        if(userUtxos) {
+        if (userUtxos) {
             res.json(Array.from(userUtxos.values()));
         } else {
             res.json([]);
@@ -186,11 +230,11 @@ app.get('/fund/:address', async (req, res, next) => {
                 ts
             };
             unspent.set(loc, utxo);
-            if(!utxosByAddress.has(utxo.address)) {
+            if (!utxosByAddress.has(utxo.address)) {
                 utxosByAddress.set(utxo.address, new Map());
             }
             utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
-            events.emit('utxo', utxo);
+            publishEvent(utxo.address, 'utxo', utxo);
         });
 
         res.json(true);
@@ -217,7 +261,7 @@ app.get('/jig/:loc', async (req, res, next) => {
 app.get('/jigs/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
-        if(!utxosByAddress.has(address)) return res.json([]);
+        if (!utxosByAddress.has(address)) return res.json([]);
         const locs = Array.from(utxosByAddress.get(address).keys());
         res.json(locs.map(loc => jigs.get(loc)).filter(jig => jig));
     } catch (e) {
@@ -260,30 +304,26 @@ app.post('/messages', async (req, res, next) => {
         const message = new SignedMessage(req.body);
         messages.set(message.id, message);
         message.to.forEach((to) => {
-            if(!messagesByChannel.has(to)) {
-                messagesByChannel.set(to, new Map());
-            }
-            messagesByChannel.get(to).set(message.id, message);
+            // if (!messagesByChannel.has(to)) {
+            //     messagesByChannel.set(to, new Map());
+            // }
+            // messagesByChannel.get(to).set(message.id, message);
+            publishEvent(to, 'message', message);
         });
         message.context.forEach(context => {
-            if(!messagesByChannel.has(context)) {
-                messagesByChannel.set(context, new Map());
-            }
-            messagesByChannel.get(context).set(message.id, message);
+            // if (!messagesByChannel.has(context)) {
+            //     messagesByChannel.set(context, new Map());
+            // }
+            // messagesByChannel.get(context).set(message.id, message);
+            publishEvent(context, 'message', message);
         })
-        events.emit('message', message);
+        
+        publishEvent(message.subject, 'message', message);
         res.json(true);
     } catch (e) {
         next(e);
     }
 });
-
-function publish(res, id, event, data) {
-    if(exp.debug) console.log('EVENT:', id, event, JSON.stringify(data));
-    res.write(`event: ${event}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n`);
-    res.write(`id: ${id}\n\n`);
-}
 
 app.get('/sse/:channel', async (req, res, next) => {
     const { channel } = req.params;
@@ -298,49 +338,24 @@ app.get('/sse/:channel', async (req, res, next) => {
 
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
     const lastId = parseInt(req.headers['last-event-id'] || req.query.lastEventId, 10);
-    if(lastId) {
-        if(utxosByAddress.has(channel)) {
-            Array.from(utxosByAddress.get(channel).keys()).forEach(loc => {
-                const jig = jigs.get(loc);
-                if(!jig || jig.ts < lastId) return;
-                publishJig(jig);
-            })
-        }
-        if(messagesByChannel.has(channel)) {
-            Array.from(messagesByChannel.get(channel).values()).forEach(message => {
-                if(message.ts < lastId) return;
-                publishMessage(message);
-            })
-        }
+    if (lastId && channels.has(channel)) {
+        const missed = Array.from(channels.get(channel).entries())
+            .filter(id => id > lastId)
+            .forEach(([id, {event, data}]) => publish(id, event, data));
     }
 
-    function publishJig(jigData) {
-        if(jigData.owner === channel) {
-            publish(res, jigData.ts, 'jig', jigData);
-        }
+    function publish(id, event, data) {
+        if (exp.debug) console.log('EVENT:', id, event, JSON.stringify(data));
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n`);
+        res.write(`id: ${id}\n\n`);
     }
 
-    function publishUtxo(utxo) {
-        if(utxo.address === channel) {
-            publish(res, utxo.ts, 'utxo', utxo);
-        }
-    }
-
-    function publishMessage(message) {
-        if(message.to.includes(channel)) {
-            publish(res, message.ts, 'msg', message);
-        }
-    }
-
-    events.on('jig', publishJig);
-    events.on('utxo', publishUtxo);
-    events.on('message', publishMessage);
+    events.on(channel, publish)
 
     res.on('close', () => {
         clearInterval(interval);
-        events.off('jig', publishJig);
-        events.off('utxo', publishUtxo);
-        events.off('message', publishMessage);
+        events.off(channel, publish);
     });
 });
 
@@ -371,5 +386,6 @@ const exp = module.exports = {
     indexJig,
     listen,
     close,
-    initialized: false
+    initialized: false,
+    run
 };
