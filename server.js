@@ -211,43 +211,47 @@ app.get('/spent/:loc', async (req, res, next) => {
     }
 });
 
+async function fund(address, satoshis) {
+    const ts = Date.now();
+    const forge = new Forge({
+        inputs: [],
+        outputs: [
+            { data: [Math.random().toString()] },
+            { to: address, satoshis: satoshis || 100000000 },
+        ]
+    });
+    forge.build();
+    const tx = forge.tx;
+    const txid = tx.id();
+    txns.set(txid, tx.toHex());
+    tx.txOuts.forEach(async (txOut, index) => {
+        if (!txOut.script.isPubKeyHashOut()) return;
+        const loc = `${txid}_o${index}`;
+        const utxo = {
+            loc,
+            txid,
+            index,
+            vout: index,
+            script: txOut.script.toBuffer().toString('hex'),
+            address: new Address().fromTxOutScript(txOut.script).toString(),
+            satoshis: txOut.valueBn.toNumber(),
+            ts
+        };
+        unspent.set(loc, utxo);
+        if (!utxosByAddress.has(utxo.address)) {
+            utxosByAddress.set(utxo.address, new Map());
+        }
+        utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
+        publishEvent(utxo.address, 'utxo', utxo);
+    });
+}
+
 app.get('/fund/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const { satoshis } = req.query;
-        const ts = Date.now();
-        const forge = new Forge({
-            inputs: [],
-            outputs: [
-                { data: [Math.random().toString()] },
-                { to: address, satoshis: satoshis || 100000000 },
-            ]
-        });
-        forge.build();
-        const tx = forge.tx;
-        const txid = tx.id();
-        txns.set(txid, tx.toHex());
-        tx.txOuts.forEach(async (txOut, index) => {
-            if (!txOut.script.isPubKeyHashOut()) return;
-            const loc = `${txid}_o${index}`;
-            const utxo = {
-                loc,
-                txid,
-                index,
-                vout: index,
-                script: txOut.script.toBuffer().toString('hex'),
-                address: new Address().fromTxOutScript(txOut.script).toString(),
-                satoshis: txOut.valueBn.toNumber(),
-                ts
-            };
-            unspent.set(loc, utxo);
-            if (!utxosByAddress.has(utxo.address)) {
-                utxosByAddress.set(utxo.address, new Map());
-            }
-            utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
-            publishEvent(utxo.address, 'utxo', utxo);
-        });
 
+        await fund(address, satoshis);
         res.json(true);
     } catch (e) {
         next(e);
@@ -395,6 +399,7 @@ const exp = module.exports = {
     debug: false,
     agents,
     events,
+    fund,
     listen,
     close,
     initialized: false,
