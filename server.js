@@ -33,6 +33,15 @@ const run = new Run({
     purse
 });
 
+let queue = Promise.resolve();
+async function addToQueue(process, label = 'process') {
+    const queuePromise = queue.then(process);
+    queue = queuePromise
+        .catch(e => console.error('Queue error', label, e.message, e.stack))
+
+    return queuePromise;
+}
+
 events.on('utxo', (utxo) => {
     addToQueue(async () => {
         const jig = await run.load(utxo.loc).catch(e => {
