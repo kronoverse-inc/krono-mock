@@ -265,7 +265,7 @@ app.post('/messages', async (req, res, next) => {
             }
             messagesByChannel.get(to).set(message.id, message);
         });
-        messages.context.forEach(context => {
+        message.context.forEach(context => {
             if(!messagesByChannel.has(context)) {
                 messagesByChannel.set(context, new Map());
             }
