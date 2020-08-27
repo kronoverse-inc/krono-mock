@@ -11,6 +11,7 @@ const Run = require('@kronoverse/tools/lib/run');
 const { RestBlockchain } = require('@kronoverse/tools/lib/rest-blockchain');
 const { SignedMessage } = require('@kronoverse/tools/lib/signed-message');
 
+const { PORT } = process.env;
 const agents = new Map();
 const events = new EventEmitter();
 events.setMaxListeners(100);
@@ -25,6 +26,7 @@ const network = 'mock';
 const purse = 'cVCMJJPrh2ayqQ2625nDaw72f9FrzssGpaCPaTgL8cfdHBnsKBWi';
 const owner = 'cNsH7M3EnyS2eNkAG9cqG99nTNGuu9Ssun48iPzGg5MBMMPAivRd';
 
+const apiUrl = `http://localhost:${PORT}`;
 const blockchain = new RestBlockchain(apiUrl, network);
 const run = new Run({
     network,
@@ -71,10 +73,10 @@ events.on('utxo', (utxo) => {
 
 const channels = new Map();
 function publishEvent(channel, event, data) {
-    if(!channels.has(channel)) channels.set(channel, new Map());
+    if (!channels.has(channel)) channels.set(channel, new Map());
     const id = Date.now();
-    channels.get(channel).set(id, {event, data});
-    events.emit(channel, {id, event, data});
+    channels.get(channel).set(id, { event, data });
+    events.emit(channel, { id, event, data });
 }
 
 const app = express();
@@ -326,7 +328,7 @@ app.post('/messages', async (req, res, next) => {
             // messagesByChannel.get(context).set(message.id, message);
             publishEvent(context, 'message', message);
         })
-        
+
         publishEvent(message.subject, 'message', message);
         res.json(true);
     } catch (e) {
@@ -350,7 +352,7 @@ app.get('/sse/:channel', async (req, res, next) => {
     if (lastId && channels.has(channel)) {
         const missed = Array.from(channels.get(channel).entries())
             .filter(id => id > lastId)
-            .forEach(([id, {event, data}]) => publish(id, event, data));
+            .forEach(([id, { event, data }]) => publish(id, event, data));
     }
 
     function publish(id, event, data) {
@@ -373,11 +375,11 @@ app.use((err, req, res, next) => {
     res.status(err.statusCode || 500).send(err.message);
 });
 
-async function listen(port) {
+async function listen() {
     return new Promise((resolve, reject) => {
-        server.listen(port, (err) => {
+        server.listen(PORT, (err) => {
             if (err) return reject(err);
-            console.log(`App listening on port ${port}`);
+            console.log(`App listening on port ${PORT}`);
             console.log('Press Ctrl+C to quit.');
             resolve();
         })
