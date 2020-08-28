@@ -75,7 +75,7 @@ function publishEvent(channel, event, data) {
     if (!channels.has(channel)) channels.set(channel, new Map());
     const id = Date.now();
     channels.get(channel).set(id, { event, data });
-    events.emit(channel, { id, event, data });
+    events.emit(channel, id, event, data );
 }
 
 const app = express();
@@ -353,7 +353,7 @@ app.get('/sse/:channel', async (req, res, next) => {
     const interval = setInterval(() => res.write('data: \n\n'), 15000);
     const lastId = parseInt(req.headers['last-event-id'] || req.query.lastEventId, 10);
     if (lastId && channels.has(channel)) {
-        const missed = Array.from(channels.get(channel).entries())
+        Array.from(channels.get(channel).entries())
             .filter(id => id > lastId)
             .forEach(([id, { event, data }]) => publish(id, event, data));
     }
