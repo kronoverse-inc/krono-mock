@@ -322,17 +322,17 @@ app.post('/messages', async (req, res, next) => {
             //     messagesByChannel.set(to, new Map());
             // }
             // messagesByChannel.get(to).set(message.id, message);
-            publishEvent(to, 'message', message);
+            publishEvent(to, 'msg', message);
         });
         message.context.forEach(context => {
             // if (!messagesByChannel.has(context)) {
             //     messagesByChannel.set(context, new Map());
             // }
             // messagesByChannel.get(context).set(message.id, message);
-            publishEvent(context, 'message', message);
+            publishEvent(context, 'msg', message);
         })
 
-        publishEvent(message.subject, 'message', message);
+        publishEvent(message.subject, 'msg', message);
         res.json(true);
     } catch (e) {
         next(e);
@@ -359,7 +359,7 @@ app.get('/sse/:channel', async (req, res, next) => {
     }
 
     function publish(id, event, data) {
-        if (exp.debug) console.log('EVENT:', id, event, JSON.stringify(data));
+        if (exp.debug) console.log('EVENT:', channel, id, event, JSON.stringify(data));
         res.write(`event: ${event}\n`);
         res.write(`data: ${JSON.stringify(data)}\n`);
         res.write(`id: ${id}\n\n`);
