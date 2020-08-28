@@ -158,6 +158,7 @@ app.post('/broadcast', async (req, res, next) => {
             }
             utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
             publishEvent(utxo.address, 'utxo', utxo);
+            events.emit('utxo', utxo);
         });
 
         res.json(txid);
