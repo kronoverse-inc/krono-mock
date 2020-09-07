@@ -233,16 +233,16 @@ async function fund(address, satoshis) {
             index,
             vout: index,
             script: txOut.script.toBuffer().toString('hex'),
-            address: new Address().fromTxOutScript(txOut.script).toString(),
+            address,
             satoshis: txOut.valueBn.toNumber(),
             ts
         };
         unspent.set(loc, utxo);
-        if (!utxosByAddress.has(utxo.address)) {
-            utxosByAddress.set(utxo.address, new Map());
+        if (!utxosByAddress.has(address)) {
+            utxosByAddress.set(address, new Map());
         }
-        utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
-        publishEvent(utxo.address, 'utxo', utxo);
+        utxosByAddress.get(address).set(utxo.loc, utxo);
+        publishEvent(address, 'utxo', utxo);
     });
 }
 
@@ -407,5 +407,6 @@ const exp = module.exports = {
     txns,
     unspent,
     spends,
-    jigs
+    jigs,
+    utxosByAddress
 };
