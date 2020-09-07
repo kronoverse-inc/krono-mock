@@ -403,5 +403,9 @@ const exp = module.exports = {
     listen,
     close,
     initialized: false,
-    run
+    run,
+    txns,
+    unspent,
+    spends,
+    jigs
 };
