@@ -18,7 +18,7 @@ const txns = new Map();
 const unspent = new Map();
 const spends = new Map();
 const jigs = new Map();
-const utxosByAddress = new Map();
+const utxosByScript = new Map();
 const messages = new Map();
 
 const network = 'mock';
@@ -135,7 +135,7 @@ app.post('/broadcast', async (req, res, next) => {
         utxos.forEach(async (utxo, i) => {
             spends.set(utxo.loc, txid);
             unspent.delete(utxo.loc);
-            const userUtxos = utxosByAddress.get(utxo.address);
+            const userUtxos = utxosByScript.get(utxo.script);
             if (userUtxos) userUtxos.delete(utxo.loc);
         });
 
@@ -153,10 +153,10 @@ app.post('/broadcast', async (req, res, next) => {
                 ts
             };
             unspent.set(loc, utxo);
-            if (!utxosByAddress.has(utxo.address)) {
-                utxosByAddress.set(utxo.address, new Map());
+            if (!utxosByScript.has(utxo.script)) {
+                utxosByScript.set(utxo.script, new Map());
             }
-            utxosByAddress.get(utxo.address).set(utxo.loc, utxo);
+            utxosByScript.get(utxo.script).set(utxo.loc, utxo);
             publishEvent(utxo.address, 'utxo', utxo);
             events.emit('utxo', utxo);
         });
@@ -178,10 +178,10 @@ app.get('/tx/:txid', async (req, res, next) => {
     }
 });
 
-app.get('/utxos/:address', async (req, res, next) => {
+app.get('/utxos/:script', async (req, res, next) => {
     try {
-        const { address } = req.params;
-        const userUtxos = utxosByAddress.get(address);
+        const { script } = req.params;
+        const userUtxos = utxosByScript.get(script);
         if (userUtxos) {
             res.json(Array.from(userUtxos.values()));
         } else {
@@ -238,10 +238,10 @@ async function fund(address, satoshis) {
             ts
         };
         unspent.set(loc, utxo);
-        if (!utxosByAddress.has(address)) {
-            utxosByAddress.set(address, new Map());
+        if (!utxosByScript.has(utxo.script)) {
+            utxosByScript.set(utxo.script, new Map());
         }
-        utxosByAddress.get(address).set(utxo.loc, utxo);
+        utxosByScript.get(address).set(utxo.loc, utxo);
         publishEvent(address, 'utxo', utxo);
     });
 }
@@ -276,8 +276,9 @@ app.get('/jig/:loc', async (req, res, next) => {
 app.get('/jigs/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
-        if (!utxosByAddress.has(address)) return res.json([]);
-        const locs = Array.from(utxosByAddress.get(address).keys());
+        const script = Address.fromString(address).toTxOutScript().toHex();
+        if (!utxosByScript.has(script)) return res.json([]);
+        const locs = Array.from(utxosByScript.get(script).keys());
         res.json(locs.map(loc => jigs.get(loc)).filter(jig => jig));
     } catch (e) {
         next(e);
@@ -408,5 +409,5 @@ const exp = module.exports = {
     unspent,
     spends,
     jigs,
-    utxosByAddress
+    utxosByScript
 };
