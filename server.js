@@ -15,7 +15,7 @@ const agents = new Map();
 const events = new EventEmitter();
 events.setMaxListeners(100);
 const txns = new Map();
-const unspent = new Map();
+// const unspent = new Map();
 const spends = new Map();
 const jigs = new Map();
 const utxosByScript = new Map();
@@ -25,14 +25,18 @@ const network = 'mock';
 const purse = 'cVCMJJPrh2ayqQ2625nDaw72f9FrzssGpaCPaTgL8cfdHBnsKBWi';
 const owner = 'cNsH7M3EnyS2eNkAG9cqG99nTNGuu9Ssun48iPzGg5MBMMPAivRd';
 
-const apiUrl = `http://localhost:${process.env.PORT || 8082}`;
-const blockchain = new RestBlockchain(apiUrl, network);
+// const apiUrl = `http://localhost:${process.env.PORT || 8082}`;
+// const blockchain = new RestBlockchain(apiUrl, network);
+const blockchain = new Run.Mockchain();
+blockchain.mempoolChainLimit = Number.MAX_VALUE;
 const run = new Run({
     network,
     blockchain,
     owner,
-    purse
+    purse,
+    // logger: console
 });
+// run.blockchain.mempoolChainLimit = Number.MAX_VALUE;
 
 let queue = Promise.resolve();
 async function addToQueue(process, label = 'process') {
@@ -44,30 +48,32 @@ async function addToQueue(process, label = 'process') {
 }
 
 events.on('utxo', (utxo) => {
-    addToQueue(async () => {
-        const jig = await run.load(utxo.loc).catch(e => {
-            if (e.message.includes('not a run tx') ||
-                e.message.includes('not a jig output') ||
-                e.message.includes('Not a token')
-            ) return;
-            throw e;
-        });
-        if (!jig) return;
-        console.log('JIG:', jig.constructor.name, jig.location);
-        const jigData = {
-            location: jig.location,
-            kind: jig.constructor && jig.constructor.origin,
-            type: jig.constructor.name,
-            origin: jig.origin,
-            owner: jig.owner,
-            ts: Date.now(),
-            isOrigin: jig.location === jig.origin
-        };
-        jigs.set(jigData.location, jigData);
-        publishEvent(jigData.owner, 'jig', jigData);
-        publishEvent(jigData.kind, 'jig', jigData);
-        publishEvent(jigData.origin, 'jig', jigData);
-    }, `utxo-${utxo.loc}`);
+    // addToQueue(async () => {
+    //     const jig = await run.load(utxo.loc).catch(e => {
+    //         if (e.message.includes('not a run tx') ||
+    //             e.message.includes('not a jig output') ||
+    //             e.message.includes('Not a token') ||
+    //             e.message.includes('Jig does not exist')
+                
+    //         ) return;
+    //         throw e;
+    //     });
+    //     if (!jig) return;
+    //     console.log('JIG:', jig.constructor.name, jig.location);
+    //     const jigData = {
+    //         location: jig.location,
+    //         kind: jig.constructor && jig.constructor.origin,
+    //         type: jig.constructor.name,
+    //         origin: jig.origin,
+    //         owner: jig.owner,
+    //         ts: Date.now(),
+    //         isOrigin: jig.location === jig.origin
+    //     };
+    //     jigs.set(jigData.location, jigData);
+    //     publishEvent(jigData.owner, 'jig', jigData);
+    //     publishEvent(jigData.kind, 'jig', jigData);
+    //     publishEvent(jigData.origin, 'jig', jigData);
+    // }, `utxo-${utxo.loc}`);
 });
 
 const channels = new Map();
@@ -118,26 +124,28 @@ app.post('/broadcast', async (req, res, next) => {
         const txid = tx.id();
         const ts = Date.now();
 
+        await run.blockchain.broadcast(rawtx);
+        run.blockchain.block();
         // const txOutMap = new TxOutMap();
-        const utxos = tx.txIns.map((txIn, i) => {
-            const loc = `${new Br(txIn.txHashBuf).readReverse().toString('hex')}_o${txIn.txOutNum}`;
-            const utxo = unspent.get(loc);
-            if (!utxo) throw createError(422, `Input missing: ${i} ${loc}`);
-            // const txOut = new TxOut({ valueBn: new Bn(utxo.satoshis, 10) });
-            // txOut.setScript(new Script().fromBuffer(Buffer.from(utxo.script, 'hex')));
-            // txOutMap.set(tx.txIns[i].txHashBuf, tx.txIns[i].txOutNum, txOut);
-            return utxo;
-        });
+        // const utxos = tx.txIns.map((txIn, i) => {
+        //     const loc = `${new Br(txIn.txHashBuf).readReverse().toString('hex')}_o${txIn.txOutNum}`;
+        //     const utxo = unspent.get(loc);
+        //     if (!utxo) throw createError(422, `Input missing: ${i} ${loc}`);
+        //     // const txOut = new TxOut({ valueBn: new Bn(utxo.satoshis, 10) });
+        //     // txOut.setScript(new Script().fromBuffer(Buffer.from(utxo.script, 'hex')));
+        //     // txOutMap.set(tx.txIns[i].txHashBuf, tx.txIns[i].txOutNum, txOut);
+        //     return utxo;
+        // });
         // const verifier = new TxVerifier(tx, txOutMap);
         // if (!verifier.verify()) throw createError(422, 'Validation failed');
 
-        txns.set(txid, rawtx);
-        utxos.forEach(async (utxo, i) => {
-            spends.set(utxo.loc, txid);
-            unspent.delete(utxo.loc);
-            const userUtxos = utxosByScript.get(utxo.script);
-            if (userUtxos) userUtxos.delete(utxo.loc);
-        });
+        // txns.set(txid, rawtx);
+        // utxos.forEach(async (utxo, i) => {
+        //     spends.set(utxo.loc, txid);
+        //     unspent.delete(utxo.loc);
+        //     const userUtxos = utxosByScript.get(utxo.script);
+        //     if (userUtxos) userUtxos.delete(utxo.loc);
+        // });
 
         tx.txOuts.forEach((txOut, index) => {
             if (!txOut.script.isPubKeyHashOut()) return;
@@ -152,11 +160,11 @@ app.post('/broadcast', async (req, res, next) => {
                 satoshis: txOut.valueBn.toNumber(),
                 ts
             };
-            unspent.set(loc, utxo);
-            if (!utxosByScript.has(utxo.script)) {
-                utxosByScript.set(utxo.script, new Map());
-            }
-            utxosByScript.get(utxo.script).set(utxo.loc, utxo);
+            // unspent.set(loc, utxo);
+            // if (!utxosByScript.has(utxo.script)) {
+            //     utxosByScript.set(utxo.script, new Map());
+            // }
+            // utxosByScript.get(utxo.script).set(utxo.loc, utxo);
             publishEvent(utxo.address, 'utxo', utxo);
             events.emit('utxo', utxo);
         });
@@ -211,19 +219,23 @@ app.get('/spent/:loc', async (req, res, next) => {
     }
 });
 
-async function fund(address, satoshis) {
+async function fund(address, satoshis = 100000000) {
     const ts = Date.now();
-    const forge = new Forge({
-        inputs: [],
-        outputs: [
-            { data: [Math.random().toString()] },
-            { to: address, satoshis: satoshis || 100000000 },
-        ]
-    });
-    forge.build();
-    const tx = forge.tx;
-    const txid = tx.id();
-    txns.set(txid, tx.toHex());
+    // const forge = new Forge({
+    //     inputs: [],
+    //     outputs: [
+    //         { data: [Math.random().toString()] },
+    //         { to: address, satoshis: satoshis || 100000000 },
+    //     ]
+    // });
+    // forge.build();
+    // const tx = forge.tx;
+    // const txid = tx.id();
+    // txns.set(txid, tx.toHex());
+    const txid = run.blockchain.fund(address, satoshis);
+    const rawtx = await run.blockchain.fetch(txid);
+    const tx = new Tx().fromBr(new Br(Buffer.from(rawtx, 'hex')));
+
     tx.txOuts.forEach(async (txOut, index) => {
         if (!txOut.script.isPubKeyHashOut()) return;
         const loc = `${txid}_o${index}`;
@@ -237,16 +249,16 @@ async function fund(address, satoshis) {
             satoshis: txOut.valueBn.toNumber(),
             ts
         };
-        unspent.set(loc, utxo);
-        if (!utxosByScript.has(utxo.script)) {
-            utxosByScript.set(utxo.script, new Map());
-        }
-        utxosByScript.get(utxo.script).set(utxo.loc, utxo);
+        // unspent.set(loc, utxo);
+        // if (!utxosByScript.has(utxo.script)) {
+        //     utxosByScript.set(utxo.script, new Map());
+        // }
+        // utxosByScript.get(utxo.script).set(utxo.loc, utxo);
         publishEvent(address, 'utxo', utxo);
     });
 }
 
-app.get('/fund/:address', async (req, res, next) => {
+app.get('/fund/:script', async (req, res, next) => {
     try {
         const { address } = req.params;
         const { satoshis } = req.query;
@@ -406,7 +418,7 @@ const exp = module.exports = {
     initialized: false,
     run,
     txns,
-    unspent,
+    // unspent,
     spends,
     jigs,
     utxosByScript
