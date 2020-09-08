@@ -241,7 +241,7 @@ async function fund(address, satoshis) {
         if (!utxosByScript.has(utxo.script)) {
             utxosByScript.set(utxo.script, new Map());
         }
-        utxosByScript.get(address).set(utxo.loc, utxo);
+        utxosByScript.get(utxo.script).set(utxo.loc, utxo);
         publishEvent(address, 'utxo', utxo);
     });
 }
