@@ -23,6 +23,7 @@ const owner = 'cNsH7M3EnyS2eNkAG9cqG99nTNGuu9Ssun48iPzGg5MBMMPAivRd';
 const blockchain = new Mockchain();
 blockchain.mempoolChainLimit = Number.MAX_VALUE;
 const cache = new Run.LocalCache({ maxSizeMB: 100 });
+const txns = [];
 const run = new Run({
     network,
     blockchain,
@@ -36,6 +37,7 @@ blockchain.events.on('txn', (rawtx) => {
     const tx = Tx.fromHex(rawtx);
     const txid = tx.id();
     const ts = Date.now();
+    txns.push(txid);
 
     tx.txOuts.forEach((txOut, index) => {
         if (!txOut.script.isPubKeyHashOut()) return;
@@ -54,6 +56,7 @@ blockchain.events.on('txn', (rawtx) => {
         publishEvent(utxo.address, 'utxo', utxo);
         // events.emit('utxo', utxo);
     });
+    blockchain.block();
 });
 
 events.on('utxo', async (utxo) => {
@@ -172,7 +175,7 @@ app.get('/fund/:address', async (req, res, next) => {
         const { address } = req.params;
         const { satoshis } = req.query;
         const txid = run.blockchain.fund(address, satoshis || 100000000);
-        res.sent(txid);
+        res.send(txid);
     } catch (e) {
         next(e);
     }
@@ -321,4 +324,5 @@ const exp = module.exports = {
     initialized: false,
     run,
     jigs,
+    txns
 };
