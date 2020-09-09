@@ -5,75 +5,85 @@ const express = require('express');
 const http = require('http');
 const createError = require('http-errors');
 const { NotFound } = createError;
-const { Forge } = require('txforge');
+const Mockchain = require('./mockchain');
 
 const Run = require('@kronoverse/tools/lib/run');
-const { RestBlockchain } = require('@kronoverse/tools/lib/rest-blockchain');
 const { SignedMessage } = require('@kronoverse/tools/lib/signed-message');
 
 const agents = new Map();
 const events = new EventEmitter();
 events.setMaxListeners(100);
-const txns = new Map();
-// const unspent = new Map();
-const spends = new Map();
 const jigs = new Map();
-const utxosByScript = new Map();
 const messages = new Map();
 
 const network = 'mock';
 const purse = 'cVCMJJPrh2ayqQ2625nDaw72f9FrzssGpaCPaTgL8cfdHBnsKBWi';
 const owner = 'cNsH7M3EnyS2eNkAG9cqG99nTNGuu9Ssun48iPzGg5MBMMPAivRd';
 
-// const apiUrl = `http://localhost:${process.env.PORT || 8082}`;
-// const blockchain = new RestBlockchain(apiUrl, network);
-const blockchain = new Run.Mockchain();
+const blockchain = new Mockchain();
 blockchain.mempoolChainLimit = Number.MAX_VALUE;
+const cache = new Run.LocalCache({ maxSizeMB: 100 });
 const run = new Run({
     network,
     blockchain,
     owner,
     purse,
+    cache,
     // logger: console
 });
-// run.blockchain.mempoolChainLimit = Number.MAX_VALUE;
 
-let queue = Promise.resolve();
-async function addToQueue(process, label = 'process') {
-    const queuePromise = queue.then(process);
-    queue = queuePromise
-        .catch(e => console.error('Queue error', label, e.message, e.stack))
+blockchain.events.on('txn', (rawtx) => {
+    const tx = Tx.fromHex(rawtx);
+    const txid = tx.id();
+    const ts = Date.now();
 
-    return queuePromise;
-}
+    tx.txOuts.forEach((txOut, index) => {
+        if (!txOut.script.isPubKeyHashOut()) return;
+        const loc = `${txid}_o${index}`;
+        const utxo = {
+            loc,
+            txid,
+            index,
+            vout: index,
+            script: txOut.script.toBuffer().toString('hex'),
+            address: new Address().fromTxOutScript(txOut.script).toString(),
+            satoshis: txOut.valueBn.toNumber(),
+            ts
+        };
 
-events.on('utxo', (utxo) => {
-    // addToQueue(async () => {
-    //     const jig = await run.load(utxo.loc).catch(e => {
-    //         if (e.message.includes('not a run tx') ||
-    //             e.message.includes('not a jig output') ||
-    //             e.message.includes('Not a token') ||
-    //             e.message.includes('Jig does not exist')
-                
-    //         ) return;
-    //         throw e;
-    //     });
-    //     if (!jig) return;
-    //     console.log('JIG:', jig.constructor.name, jig.location);
-    //     const jigData = {
-    //         location: jig.location,
-    //         kind: jig.constructor && jig.constructor.origin,
-    //         type: jig.constructor.name,
-    //         origin: jig.origin,
-    //         owner: jig.owner,
-    //         ts: Date.now(),
-    //         isOrigin: jig.location === jig.origin
-    //     };
-    //     jigs.set(jigData.location, jigData);
-    //     publishEvent(jigData.owner, 'jig', jigData);
-    //     publishEvent(jigData.kind, 'jig', jigData);
-    //     publishEvent(jigData.origin, 'jig', jigData);
-    // }, `utxo-${utxo.loc}`);
+        publishEvent(utxo.address, 'utxo', utxo);
+        // events.emit('utxo', utxo);
+    });
+});
+
+events.on('utxo', async (utxo) => {
+    try {
+        console.log('Indexing:', utxo.loc);
+        const jig = await run.load(utxo.loc).catch(e => {
+            if (e.message.includes('Jig does not exist') || 
+                e.message.includes('Not a run transaction')
+            ) return;
+            throw e;
+        });
+        if (!jig) return;
+        console.log('JIG:', jig.constructor.name, jig.location);
+        const jigData = {
+            location: jig.location,
+            kind: jig.constructor && jig.constructor.origin,
+            type: jig.constructor.name,
+            origin: jig.origin,
+            owner: jig.owner,
+            ts: Date.now(),
+            isOrigin: jig.location === jig.origin
+        };
+        jigs.set(jigData.location, jigData);
+        publishEvent(jigData.owner, 'jig', jigData);
+        publishEvent(jigData.kind, 'jig', jigData);
+        publishEvent(jigData.origin, 'jig', jigData);
+    } catch (e) {
+        console.error('INDEX ERROR:', e);
+        throw e;
+    }
 });
 
 const channels = new Map();
@@ -81,7 +91,7 @@ function publishEvent(channel, event, data) {
     if (!channels.has(channel)) channels.set(channel, new Map());
     const id = Date.now();
     channels.get(channel).set(id, { event, data });
-    events.emit(channel, id, event, data );
+    events.emit(channel, id, event, data);
 }
 
 const app = express();
@@ -120,55 +130,7 @@ app.get('/initialize', async (req, res, next) => {
 app.post('/broadcast', async (req, res, next) => {
     try {
         const { rawtx } = req.body;
-        const tx = new Tx().fromBr(new Br(Buffer.from(rawtx, 'hex')));
-        const txid = tx.id();
-        const ts = Date.now();
-
-        await run.blockchain.broadcast(rawtx);
-        run.blockchain.block();
-        // const txOutMap = new TxOutMap();
-        // const utxos = tx.txIns.map((txIn, i) => {
-        //     const loc = `${new Br(txIn.txHashBuf).readReverse().toString('hex')}_o${txIn.txOutNum}`;
-        //     const utxo = unspent.get(loc);
-        //     if (!utxo) throw createError(422, `Input missing: ${i} ${loc}`);
-        //     // const txOut = new TxOut({ valueBn: new Bn(utxo.satoshis, 10) });
-        //     // txOut.setScript(new Script().fromBuffer(Buffer.from(utxo.script, 'hex')));
-        //     // txOutMap.set(tx.txIns[i].txHashBuf, tx.txIns[i].txOutNum, txOut);
-        //     return utxo;
-        // });
-        // const verifier = new TxVerifier(tx, txOutMap);
-        // if (!verifier.verify()) throw createError(422, 'Validation failed');
-
-        // txns.set(txid, rawtx);
-        // utxos.forEach(async (utxo, i) => {
-        //     spends.set(utxo.loc, txid);
-        //     unspent.delete(utxo.loc);
-        //     const userUtxos = utxosByScript.get(utxo.script);
-        //     if (userUtxos) userUtxos.delete(utxo.loc);
-        // });
-
-        tx.txOuts.forEach((txOut, index) => {
-            if (!txOut.script.isPubKeyHashOut()) return;
-            const loc = `${txid}_o${index}`;
-            const utxo = {
-                loc,
-                txid,
-                index,
-                vout: index,
-                script: txOut.script.toBuffer().toString('hex'),
-                address: new Address().fromTxOutScript(txOut.script).toString(),
-                satoshis: txOut.valueBn.toNumber(),
-                ts
-            };
-            // unspent.set(loc, utxo);
-            // if (!utxosByScript.has(utxo.script)) {
-            //     utxosByScript.set(utxo.script, new Map());
-            // }
-            // utxosByScript.get(utxo.script).set(utxo.loc, utxo);
-            publishEvent(utxo.address, 'utxo', utxo);
-            events.emit('utxo', utxo);
-        });
-
+        const txid = await run.blockchain.broadcast(rawtx);
         res.json(txid);
     } catch (e) {
         next(e);
@@ -178,8 +140,9 @@ app.post('/broadcast', async (req, res, next) => {
 app.get('/tx/:txid', async (req, res, next) => {
     try {
         const { txid } = req.params;
-        const rawtx = txns.get(txid);
+        const rawtx = await blockchain.fetch(txid);
         if (!rawtx) throw new NotFound();
+
         res.send(rawtx);
     } catch (e) {
         next(e);
@@ -189,22 +152,7 @@ app.get('/tx/:txid', async (req, res, next) => {
 app.get('/utxos/:script', async (req, res, next) => {
     try {
         const { script } = req.params;
-        const userUtxos = utxosByScript.get(script);
-        if (userUtxos) {
-            res.json(Array.from(userUtxos.values()));
-        } else {
-            res.json([]);
-        }
-    } catch (e) {
-        next(e);
-    }
-});
-
-app.post('/spent', async (req, res, next) => {
-    try {
-        const { locs } = req.body;
-        const out = locs.map(loc => spends.get(loc) || '');
-        res.json(out);
+        res.json(blockchain.utxos(script));
     } catch (e) {
         next(e);
     }
@@ -212,59 +160,19 @@ app.post('/spent', async (req, res, next) => {
 
 app.get('/spent/:loc', async (req, res, next) => {
     try {
-        const { loc } = req.params;
-        res.send(spends.get(loc) || '');
+        const [txid, vout] = req.params.loc.split('_o');
+        res.send(blockchain.spends(txid, parseInt(vout, 10)));
     } catch (e) {
         next(e);
     }
 });
 
-async function fund(address, satoshis = 100000000) {
-    const ts = Date.now();
-    // const forge = new Forge({
-    //     inputs: [],
-    //     outputs: [
-    //         { data: [Math.random().toString()] },
-    //         { to: address, satoshis: satoshis || 100000000 },
-    //     ]
-    // });
-    // forge.build();
-    // const tx = forge.tx;
-    // const txid = tx.id();
-    // txns.set(txid, tx.toHex());
-    const txid = run.blockchain.fund(address, satoshis);
-    const rawtx = await run.blockchain.fetch(txid);
-    const tx = new Tx().fromBr(new Br(Buffer.from(rawtx, 'hex')));
-
-    tx.txOuts.forEach(async (txOut, index) => {
-        if (!txOut.script.isPubKeyHashOut()) return;
-        const loc = `${txid}_o${index}`;
-        const utxo = {
-            loc,
-            txid,
-            index,
-            vout: index,
-            script: txOut.script.toBuffer().toString('hex'),
-            address,
-            satoshis: txOut.valueBn.toNumber(),
-            ts
-        };
-        // unspent.set(loc, utxo);
-        // if (!utxosByScript.has(utxo.script)) {
-        //     utxosByScript.set(utxo.script, new Map());
-        // }
-        // utxosByScript.get(utxo.script).set(utxo.loc, utxo);
-        publishEvent(address, 'utxo', utxo);
-    });
-}
-
-app.get('/fund/:script', async (req, res, next) => {
+app.get('/fund/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const { satoshis } = req.query;
-
-        await fund(address, satoshis);
-        res.json(true);
+        const txid = run.blockchain.fund(address, satoshis || 100000000);
+        res.sent(txid);
     } catch (e) {
         next(e);
     }
@@ -276,21 +184,12 @@ app.get('/agents/:realm/:agentId', (req, res) => {
     res.json(agent);
 });
 
-app.get('/jig/:loc', async (req, res, next) => {
-    try {
-        // const jig = await run.load(req.params.loc)
-        res.json(Array.from(jigs.values()).find(jig => jig.location === req.params.loc));
-    } catch (e) {
-        next(e);
-    }
-});
-
 app.get('/jigs/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const script = Address.fromString(address).toTxOutScript().toHex();
-        if (!utxosByScript.has(script)) return res.json([]);
-        const locs = Array.from(utxosByScript.get(script).keys());
+        const utxos = await blockchain.utxos(script);
+        const locs = utxos.map(u => `${u.txid}_o${u.vout}`);
         res.json(locs.map(loc => jigs.get(loc)).filter(jig => jig));
     } catch (e) {
         next(e);
@@ -332,17 +231,9 @@ app.post('/messages', async (req, res, next) => {
         const message = new SignedMessage(req.body);
         messages.set(message.id, message);
         message.to.forEach((to) => {
-            // if (!messagesByChannel.has(to)) {
-            //     messagesByChannel.set(to, new Map());
-            // }
-            // messagesByChannel.get(to).set(message.id, message);
             publishEvent(to, 'msg', message);
         });
         message.context.forEach(context => {
-            // if (!messagesByChannel.has(context)) {
-            //     messagesByChannel.set(context, new Map());
-            // }
-            // messagesByChannel.get(context).set(message.id, message);
             publishEvent(context, 'msg', message);
         })
 
@@ -351,6 +242,18 @@ app.post('/messages', async (req, res, next) => {
     } catch (e) {
         next(e);
     }
+});
+
+app.get('/cache/:key', async (req, res, next) => {
+    try {
+        const value = cache.get(req.params.key);
+        if (!value) throw new NotFound();
+        res.json(value);
+    } catch (e) {
+        next(e);
+    }
+
+
 });
 
 app.get('/sse/:channel', async (req, res, next) => {
@@ -411,15 +314,11 @@ async function close() {
 const exp = module.exports = {
     debug: false,
     agents,
+    blockchain,
     events,
-    fund,
     listen,
     close,
     initialized: false,
     run,
-    txns,
-    // unspent,
-    spends,
     jigs,
-    utxosByScript
 };
