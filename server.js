@@ -167,7 +167,7 @@ app.get('/tx/:txid', async (req, res, next) => {
 app.get('/utxos/:script', async (req, res, next) => {
     try {
         const { script } = req.params;
-        res.json(blockchain.utxos(script));
+        res.json(await blockchain.utxos(script));
     } catch (e) {
         next(e);
     }
@@ -176,7 +176,7 @@ app.get('/utxos/:script', async (req, res, next) => {
 app.get('/spent/:loc', async (req, res, next) => {
     try {
         const [txid, vout] = req.params.loc.split('_o');
-        res.send(blockchain.spends(txid, parseInt(vout, 10)));
+        res.send(await blockchain.spends(txid, parseInt(vout, 10)));
     } catch (e) {
         next(e);
     }
@@ -186,7 +186,7 @@ app.get('/fund/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const { satoshis } = req.query;
-        const txid = run.blockchain.fund(address, satoshis || 100000000);
+        const txid = await run.blockchain.fund(address, satoshis || 100000000);
         res.send(txid);
     } catch (e) {
         next(e);
