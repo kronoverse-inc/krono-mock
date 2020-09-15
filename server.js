@@ -30,10 +30,13 @@ const run = new Run({
     owner,
     purse,
     cache,
+    timeout: 30000,
+    trust: '*',
     // logger: console
 });
 
-blockchain.events.on('txn', (rawtx) => {
+blockchain.events.on('txn', async (rawtx) => {
+    blockchain.block();
     const tx = Tx.fromHex(rawtx);
     const txid = tx.id();
     const ts = Date.now();
@@ -41,9 +44,8 @@ blockchain.events.on('txn', (rawtx) => {
 
     tx.txOuts.forEach((txOut, index) => {
         if (!txOut.script.isPubKeyHashOut()) return;
-        const loc = `${txid}_o${index}`;
         const utxo = {
-            loc,
+            loc: `${txid}_o${index}`,
             txid,
             index,
             vout: index,
@@ -54,16 +56,26 @@ blockchain.events.on('txn', (rawtx) => {
         };
 
         publishEvent(utxo.address, 'utxo', utxo);
-        // events.emit('utxo', utxo);
     });
-    blockchain.block();
+
+    let payload;
+    try {
+        payload = run.payload(rawtx);
+    } catch (e) {
+        if (e.message.includes('Bad payload structure')) return;
+        throw e;
+    }
+    const locs = payload.out.map((x, i) => `${txid}_o${i + 1}`);
+    await indexJig(locs.shift());
+    await Promise.all(locs.map((loc) => indexJig(loc)));
 });
 
-events.on('utxo', async (utxo) => {
+async function indexJig(loc) {
+    if (!loc) return;
     try {
-        console.log('Indexing:', utxo.loc);
-        const jig = await run.load(utxo.loc).catch(e => {
-            if (e.message.includes('Jig does not exist') || 
+        console.log('Indexing:', loc);
+        const jig = await run.load(loc).catch(e => {
+            if (e.message.includes('Jig does not exist') ||
                 e.message.includes('Not a run transaction')
             ) return;
             throw e;
@@ -85,9 +97,9 @@ events.on('utxo', async (utxo) => {
         publishEvent(jigData.origin, 'jig', jigData);
     } catch (e) {
         console.error('INDEX ERROR:', e);
-        throw e;
+        // throw e;
     }
-});
+}
 
 const channels = new Map();
 function publishEvent(channel, event, data) {
@@ -247,16 +259,15 @@ app.post('/messages', async (req, res, next) => {
     }
 });
 
-app.get('/cache/:key', async (req, res, next) => {
+app.get('/state/:key', async (req, res, next) => {
     try {
-        const value = cache.get(req.params.key);
+        const { key } = req.params;
+        const value = await cache.get(key);
         if (!value) throw new NotFound();
         res.json(value);
     } catch (e) {
         next(e);
     }
-
-
 });
 
 app.get('/sse/:channel', async (req, res, next) => {
