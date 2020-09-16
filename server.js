@@ -185,8 +185,8 @@ app.get('/spent/:loc', async (req, res, next) => {
 app.get('/fund/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
-        const { satoshis } = req.query;
-        const txid = await run.blockchain.fund(address, satoshis || 100000000);
+        const satoshis = parseInt(req.query.satoshis) || 100000000;
+        const txid = await run.blockchain.fund(address, satoshis);
         res.send(txid);
     } catch (e) {
         next(e);
