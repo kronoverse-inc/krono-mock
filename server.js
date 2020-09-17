@@ -304,6 +304,10 @@ app.get('/sse/:channel', async (req, res, next) => {
     });
 });
 
+app.get('/txns', async (req, res, next) => {
+    res.json(await Promise.all(txns.map(txid => server.blockchain.fetch(txid))));
+});
+
 app.use((err, req, res, next) => {
     console.error(err.message, err.statusCode !== 404 && err.stack);
     res.status(err.statusCode || 500).send(err.message);
