@@ -7,7 +7,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@kronoverse/tools": "^1.0.14",
+    "@kronoverse/tools": "^1.0.22",
     "bsv": "^2.0.0-beta.40",
     "cors": "^2.8.5",
     "events": "^3.2.0",
