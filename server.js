@@ -62,7 +62,7 @@ blockchain.events.on('txn', async (rawtx) => {
     try {
         payload = run.payload(rawtx);
     } catch (e) {
-        if (e.message.includes('Bad payload structure')) return;
+        if (e.message.includes('Bad payload structure') || e.message.includes('Not a run transaction')) return;
         throw e;
     }
     const locs = payload.out.map((x, i) => `${txid}_o${i + 1}`);
