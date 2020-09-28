@@ -69,7 +69,7 @@ app.get('/initialize', async (req, res, next) => {
 app.post('/broadcast', async (req, res, next) => {
     try {
         const { rawtx } = req.body;
-        const txid = await run.blockchain.broadcast(rawtx);
+        const txid = await blockchain.broadcast(rawtx);
         res.send(txid);
     } catch (e) {
         next(e);
