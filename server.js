@@ -24,81 +24,84 @@ const blockchain = new Mockchain();
 blockchain.mempoolChainLimit = Number.MAX_VALUE;
 const cache = new Run.LocalCache({ maxSizeMB: 100 });
 const txns = [];
-const run = new Run({
-    network,
-    blockchain,
-    owner,
-    purse,
-    cache,
-    timeout: 30000,
-    trust: '*',
-    // logger: console
-});
 
-blockchain.events.on('txn', async (rawtx) => {
-    blockchain.block();
-    const tx = Tx.fromHex(rawtx);
-    const txid = tx.id();
-    const ts = Date.now();
-    txns.push(txid);
-
-    tx.txOuts.forEach((txOut, index) => {
-        if (!txOut.script.isPubKeyHashOut()) return;
-        const utxo = {
-            loc: `${txid}_o${index}`,
-            txid,
-            index,
-            vout: index,
-            script: txOut.script.toBuffer().toString('hex'),
-            address: new Address().fromTxOutScript(txOut.script).toString(),
-            satoshis: txOut.valueBn.toNumber(),
-            ts
-        };
-
-        publishEvent(utxo.address, 'utxo', utxo);
+if(exp.indexJigs) {
+    const run = new Run({
+        network,
+        blockchain,
+        owner,
+        purse,
+        cache,
+        timeout: 30000,
+        trust: '*',
+        // logger: console
     });
 
-    let payload;
-    try {
-        payload = run.payload(rawtx);
-    } catch (e) {
-        if (e.message.includes('Bad payload structure') || e.message.includes('Not a run transaction')) return;
-        throw e;
-    }
-    const locs = payload.out.map((x, i) => `${txid}_o${i + 1}`);
-    await indexJig(locs.shift());
-    await Promise.all(locs.map((loc) => indexJig(loc)));
-});
+    blockchain.events.on('txn', async (rawtx) => {
+        blockchain.block();
+        const tx = Tx.fromHex(rawtx);
+        const txid = tx.id();
+        const ts = Date.now();
+        txns.push(txid);
 
-async function indexJig(loc) {
-    if (!loc) return;
-    try {
-        console.log('Indexing:', loc);
-        const jig = await run.load(loc).catch(e => {
-            if (e.message.includes('Jig does not exist') ||
-                e.message.includes('Not a run transaction')
-            ) return;
-            throw e;
+        tx.txOuts.forEach((txOut, index) => {
+            if (!txOut.script.isPubKeyHashOut()) return;
+            const utxo = {
+                loc: `${txid}_o${index}`,
+                txid,
+                index,
+                vout: index,
+                script: txOut.script.toBuffer().toString('hex'),
+                address: new Address().fromTxOutScript(txOut.script).toString(),
+                satoshis: txOut.valueBn.toNumber(),
+                ts
+            };
+
+            publishEvent(utxo.address, 'utxo', utxo);
         });
-        if (!jig) return;
-        console.log('JIG:', jig.constructor.name, jig.location);
-        const jigData = {
-            location: jig.location,
-            kind: jig.constructor && jig.constructor.origin,
-            type: jig.constructor.name,
-            origin: jig.origin,
-            owner: jig.owner,
-            ts: Date.now(),
-            isOrigin: jig.location === jig.origin
-        };
-        jigs.set(jigData.location, jigData);
-        publishEvent(jigData.owner, 'jig', jigData);
-        publishEvent(jigData.kind, 'jig', jigData);
-        publishEvent(jigData.origin, 'jig', jigData);
-    } catch (e) {
-        console.error('INDEX ERROR:', e);
-        // throw e;
-    }
+
+        let payload;
+        try {
+            payload = run.payload(rawtx);
+        } catch (e) {
+            if (e.message.includes('Bad payload structure') || e.message.includes('Not a run transaction')) return;
+            throw e;
+        }
+        const locs = payload.out.map((x, i) => `${txid}_o${i + 1}`);
+        await indexJig(locs.shift());
+        await Promise.all(locs.map((loc) => indexJig(loc)));
+    });
+
+    async function indexJig(loc) {
+        if (!loc) return;
+        try {
+            console.log('Indexing:', loc);
+            const jig = await run.load(loc).catch(e => {
+                if (e.message.includes('Jig does not exist') ||
+                    e.message.includes('Not a run transaction')
+                ) return;
+                throw e;
+            });
+            if (!jig) return;
+            console.log('JIG:', jig.constructor.name, jig.location);
+            const jigData = {
+                location: jig.location,
+                kind: jig.constructor && jig.constructor.origin,
+                type: jig.constructor.name,
+                origin: jig.origin,
+                owner: jig.owner,
+                ts: Date.now(),
+                isOrigin: jig.location === jig.origin
+            };
+            jigs.set(jigData.location, jigData);
+            publishEvent(jigData.owner, 'jig', jigData);
+            publishEvent(jigData.kind, 'jig', jigData);
+            publishEvent(jigData.origin, 'jig', jigData);
+        } catch (e) {
+            console.error('INDEX ERROR:', e);
+            // throw e;
+        }
+    }    
 }
 
 const channels = new Map();
@@ -339,5 +342,6 @@ const exp = module.exports = {
     initialized: false,
     run,
     jigs,
-    txns
+    txns,
+    indexJigs: true
 };
