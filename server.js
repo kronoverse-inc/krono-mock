@@ -253,6 +253,17 @@ async function close() {
     server.close();
 }
 
+const run = new Run({
+    network,
+    blockchain,
+    owner,
+    purse,
+    cache,
+    timeout: 30000,
+    trust: '*',
+    // logger: console
+});
+
 const exp = module.exports = {
     debug: false,
     agents,
@@ -268,17 +279,6 @@ const exp = module.exports = {
 };
 
 if(exp.indexJigs) {
-    const run = new Run({
-        network,
-        blockchain,
-        owner,
-        purse,
-        cache,
-        timeout: 30000,
-        trust: '*',
-        // logger: console
-    });
-
     blockchain.events.on('txn', async (rawtx) => {
         blockchain.block();
         const tx = Tx.fromHex(rawtx);
