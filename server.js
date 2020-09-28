@@ -313,12 +313,12 @@ app.use((err, req, res, next) => {
     res.status(err.statusCode || 500).send(err.message);
 });
 
-async function listen() {
+async function listen(port) {
     return new Promise((resolve, reject) => {
-        const PORT = process.env.PORT || 8082;
-        server.listen(PORT, (err) => {
+        // const PORT = process.env.PORT || 8082;
+        server.listen(port, (err) => {
             if (err) return reject(err);
-            console.log(`App listening on port ${PORT}`);
+            console.log(`App listening on port ${port}`);
             console.log('Press Ctrl+C to quit.');
             resolve();
         })
