@@ -97,9 +97,9 @@ app.get('/utxos/:script', async (req, res, next) => {
     }
 });
 
-app.get('/spent/:loc', async (req, res, next) => {
+app.get('/spends/:txid/:vout', async (req, res, next) => {
     try {
-        const [txid, vout] = req.params.loc.split('_o');
+        const {txid, vout} = req.params;
         res.send(await blockchain.spends(txid, parseInt(vout, 10)));
     } catch (e) {
         next(e);
