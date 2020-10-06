@@ -333,7 +333,8 @@ async function indexJig(loc) {
             origin: jig.origin,
             owner: jig.owner,
             ts: Date.now(),
-            isOrigin: jig.location === jig.origin
+            isOrigin: jig.location === jig.origin,
+            value: jig.toObject ? jig.toObject() : {}
         };
         jigs.set(jigData.location, jigData);
         publishEvent(jigData.owner, 'jig', jigData);
