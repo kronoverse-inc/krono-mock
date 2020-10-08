@@ -233,7 +233,7 @@ app.get('/txns', async (req, res, next) => {
 });
 
 app.post('/:agentId', async (req, res, next) => {
-    events.emit('agentMsg',(result) => {
+    events.emit('agentMsg', req.params.agentId, req.body, (result) => {
         res.json(result);
     })
 })
