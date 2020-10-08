@@ -232,6 +232,12 @@ app.get('/txns', async (req, res, next) => {
     res.json(await Promise.all(txns.map(txid => server.blockchain.fetch(txid))));
 });
 
+app.post('/:agentId', async (req, res, next) => {
+    events.emit('agentMsg',(result) => {
+        res.json(result);
+    })
+})
+
 app.use((err, req, res, next) => {
     console.error(err.message, err.statusCode !== 404 && err.stack);
     res.status(err.statusCode || 500).send(err.message);
