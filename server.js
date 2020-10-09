@@ -297,8 +297,8 @@ const run = new Run({
     purse,
     cache,
     timeout: 30000,
-    trust: '*',
-    logger: console
+    trust: '*'
+    //logger: console
 });
 
 const exp = module.exports = {
