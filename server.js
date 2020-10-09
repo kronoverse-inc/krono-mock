@@ -301,7 +301,7 @@ const run = new Run({
     cache,
     timeout: 30000,
     trust: '*',
-    logger: console
+    // logger: console
 });
 
 const exp = module.exports = {
