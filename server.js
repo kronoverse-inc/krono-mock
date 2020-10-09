@@ -35,6 +35,10 @@ function publishEvent(channel, event, data) {
 
 const app = express();
 const server = http.createServer(app);
+
+const WebSocket = require('ws');
+const wss = new WebSocket.Server({ clientTracking: false, noServer: true });
+
 app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
@@ -194,7 +198,7 @@ app.get('/state/:key', async (req, res, next) => {
     }
 });
 
-app.get('/sse/:channel', async (req, res, next) => {
+/* app.get('/sse/:channel', async (req, res, next) => {
     const { channel } = req.params;
     req.socket.setNoDelay(true);
     res.writeHead(200, {
@@ -226,14 +230,41 @@ app.get('/sse/:channel', async (req, res, next) => {
         clearInterval(interval);
         events.off(channel, publish);
     });
+}); */
+
+server.on('upgrade', (request, socket, head) => {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+    });
 });
+
+wss.on('connection', (ws, req) => {
+    ws.on('message', (message) => {
+        const { action, channelId } = JSON.parse(message);
+
+        if(action !== 'subscribe') return;
+
+        events.on(channel, (id,event,data) => {
+            ws.send(JSON.stringify({
+                id: eventId,
+                channel: channelId,
+                event,
+                data
+            }));
+        })
+
+        
+    });
+    
+});
+
 
 app.get('/txns', async (req, res, next) => {
     res.json(await Promise.all(txns.map(txid => server.blockchain.fetch(txid))));
 });
 
 app.post('/:agentId', async (req, res, next) => {
-    events.emit('agentMsg',(result) => {
+    events.emit('agentMsg', (result) => {
         res.json(result);
     })
 })
@@ -267,7 +298,7 @@ const run = new Run({
     cache,
     timeout: 30000,
     trust: '*',
-    // logger: console
+    logger: console
 });
 
 const exp = module.exports = {
@@ -285,7 +316,7 @@ const exp = module.exports = {
 };
 
 blockchain.events.on('txn', async (rawtx) => {
-    if(!exp.indexJigs) return
+    if (!exp.indexJigs) return
     blockchain.block();
     const tx = Tx.fromHex(rawtx);
     const txid = tx.id();
@@ -350,4 +381,5 @@ async function indexJig(loc) {
         console.error('INDEX ERROR:', e);
         // throw e;
     }
-}    
+}
+
