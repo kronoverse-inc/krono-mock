@@ -246,16 +246,13 @@ wss.on('connection', (ws, req) => {
 
         events.on(channel, (id,event,data) => {
             ws.send(JSON.stringify({
-                id: eventId,
+                id,
                 channel: channelId,
                 event,
                 data
             }));
-        })
-
-        
+        });
     });
-    
 });
 
 
