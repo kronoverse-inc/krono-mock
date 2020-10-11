@@ -16,10 +16,6 @@ events.setMaxListeners(100);
 const jigs = new Map();
 const messages = new Map();
 
-const network = 'mock';
-const purse = 'cVCMJJPrh2ayqQ2625nDaw72f9FrzssGpaCPaTgL8cfdHBnsKBWi';
-const owner = 'cNsH7M3EnyS2eNkAG9cqG99nTNGuu9Ssun48iPzGg5MBMMPAivRd';
-
 const blockchain = new Mockchain();
 blockchain.mempoolChainLimit = Number.MAX_VALUE;
 const cache = new Run.LocalCache({ maxSizeMB: 100 });
@@ -114,7 +110,7 @@ app.get('/fund/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const satoshis = parseInt(req.query.satoshis) || 100000000;
-        const txid = await run.blockchain.fund(address, satoshis);
+        const txid = await blockchain.fund(address, satoshis);
         res.send(txid);
     } catch (e) {
         next(e);
@@ -125,6 +121,14 @@ app.get('/agents/:realm/:agentId', (req, res) => {
     const agent = agents.get(req.params.agentId);
     if (!agent) throw new NotFound();
     res.json(agent);
+});
+
+app.get('/jigs', async (req, res, next) => {
+    try {
+        res.json(Array.from(jigs.values()));
+    } catch (e) {
+        next(e);
+    }
 });
 
 app.get('/jigs/:address', async (req, res, next) => {
@@ -198,40 +202,6 @@ app.get('/state/:key', async (req, res, next) => {
     }
 });
 
-/* app.get('/sse/:channel', async (req, res, next) => {
-    const { channel } = req.params;
-    req.socket.setNoDelay(true);
-    res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-store; no-cache; max-age=0; stale-while-revalidate=0; stale-if-error=0",
-        "Connection": "keep-alive"
-    });
-
-    res.write('retry: 1000\n\n');
-
-    const interval = setInterval(() => res.write('data: \n\n'), 15000);
-    const lastId = parseInt(req.headers['last-event-id'] || req.query.lastEventId, 10);
-    if (lastId && channels.has(channel)) {
-        Array.from(channels.get(channel).entries())
-            .filter(id => id > lastId)
-            .forEach(([id, { event, data }]) => publish(id, event, data));
-    }
-
-    function publish(id, event, data) {
-        if (exp.debug) console.log('EVENT:', channel, id, event, JSON.stringify(data));
-        res.write(`event: ${event}\n`);
-        res.write(`data: ${JSON.stringify(data)}\n`);
-        res.write(`id: ${id}\n\n`);
-    }
-
-    events.on(channel, publish)
-
-    res.on('close', () => {
-        clearInterval(interval);
-        events.off(channel, publish);
-    });
-}); */
-
 server.on('upgrade', (request, socket, head) => {
     wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
@@ -244,7 +214,7 @@ wss.on('connection', (ws, req) => {
 
         if(action !== 'subscribe') return;
 
-        events.on(channel, (id,event,data) => {
+        events.on(channelId, (id,event,data) => {
             ws.send(JSON.stringify({
                 id,
                 channel: channelId,
@@ -255,7 +225,6 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-
 app.get('/txns', async (req, res, next) => {
     res.json(await Promise.all(txns.map(txid => server.blockchain.fetch(txid))));
 });
@@ -265,7 +234,7 @@ app.post('/:agentId', async (req, res, next) => {
         if(err) {
             return next(err);
         }
-        res.json(result);
+        res.json(result || null);
     })
 })
 
@@ -290,17 +259,6 @@ async function close() {
     server.close();
 }
 
-const run = new Run({
-    network,
-    blockchain,
-    owner,
-    purse,
-    cache,
-    timeout: 30000,
-    trust: '*',
-    // logger: console
-});
-
 const exp = module.exports = {
     debug: false,
     agents,
@@ -309,77 +267,15 @@ const exp = module.exports = {
     listen,
     close,
     initialized: false,
-    run,
     jigs,
     txns,
-    indexJigs: true
+    cache,
+    publishEvent,
 };
 
 blockchain.events.on('txn', async (rawtx) => {
-    if (!exp.indexJigs) return
     blockchain.block();
     const tx = Tx.fromHex(rawtx);
     const txid = tx.id();
-    const ts = Date.now();
     txns.push(txid);
-
-    tx.txOuts.forEach((txOut, index) => {
-        if (!txOut.script.isPubKeyHashOut()) return;
-        const utxo = {
-            loc: `${txid}_o${index}`,
-            txid,
-            index,
-            vout: index,
-            script: txOut.script.toBuffer().toString('hex'),
-            address: new Address().fromTxOutScript(txOut.script).toString(),
-            satoshis: txOut.valueBn.toNumber(),
-            ts
-        };
-
-        publishEvent(utxo.address, 'utxo', utxo);
-    });
-
-    let payload;
-    try {
-        payload = run.payload(rawtx);
-    } catch (e) {
-        if (e.message.includes('Bad payload structure') || e.message.includes('Not a run transaction')) return;
-        throw e;
-    }
-    const locs = payload.out.map((x, i) => `${txid}_o${i + 1}`);
-    await indexJig(locs.shift());
-    await Promise.all(locs.map((loc) => indexJig(loc)));
 });
-
-async function indexJig(loc) {
-    if (!loc) return;
-    try {
-        console.log('Indexing:', loc);
-        const jig = await run.load(loc).catch(e => {
-            if (e.message.includes('Jig does not exist') ||
-                e.message.includes('Not a run transaction')
-            ) return;
-            throw e;
-        });
-        if (!jig) return;
-        console.log('JIG:', jig.constructor.name, jig.location);
-        const jigData = {
-            location: jig.location,
-            kind: jig.constructor && jig.constructor.origin,
-            type: jig.constructor.name,
-            origin: jig.origin,
-            owner: jig.owner,
-            ts: Date.now(),
-            isOrigin: jig.location === jig.origin,
-            value: jig.toObject ? jig.toObject() : {}
-        };
-        jigs.set(jigData.location, jigData);
-        publishEvent(jigData.owner, 'jig', jigData);
-        publishEvent(jigData.kind, 'jig', jigData);
-        publishEvent(jigData.origin, 'jig', jigData);
-    } catch (e) {
-        console.error('INDEX ERROR:', e);
-        // throw e;
-    }
-}
-
