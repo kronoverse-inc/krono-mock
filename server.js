@@ -35,6 +35,10 @@ const server = http.createServer(app);
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ clientTracking: false, noServer: true });
 
+const fs = require('fs');
+const path = require('path');
+const mime = require('mime-types');
+
 app.enable('trust proxy');
 app.use(cors());
 app.use(express.json());
@@ -212,7 +216,7 @@ wss.on('connection', (ws, req) => {
     ws.on('message', (message) => {
         const { action, channelId } = JSON.parse(message);
 
-        if(action !== 'subscribe') return;
+        if (action !== 'subscribe') return;
 
         events.on(channelId, (id,event,data) => {
             ws.send(JSON.stringify({
