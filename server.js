@@ -229,7 +229,18 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-app.get('/wallet/:filename?', async (req, res, next) => {
+app.use('/wallet',express.static(path.join(__dirname, 'ks-client')), (req,res,next) => {
+    let pathToFile = path.join(__dirname, 'ks-client', "index.html");
+
+    let data = fs.readFileSync(pathToFile);
+    let cType = mime.lookup(pathToFile);
+
+    res.writeHeader(200, { "Content-Type": cType });
+    res.write(data);
+    res.end();
+});
+
+/* app.get('/wallet', async (req, res, next) => {
     let indexFile = "index.html";
     let fileToServe = req.params.filename ? req.params.filename : indexFile;
     console.log('File:', fileToServe);
@@ -242,7 +253,7 @@ app.get('/wallet/:filename?', async (req, res, next) => {
     res.writeHeader(200, { "Content-Type": cType });
     res.write(data);
     res.end();
-});
+}); */
 
 app.get('/txns', async (req, res, next) => {
     res.json(await Promise.all(txns.map(txid => server.blockchain.fetch(txid))));
@@ -298,3 +309,13 @@ blockchain.events.on('txn', async (rawtx) => {
     const txid = tx.id();
     txns.push(txid);
 });
+
+
+// Testing Stuff
+let PORT = process.env.MOCKPORT === undefined ? 3000 : process.env.MOCKPORT;
+
+(async () => {
+    app.listen(PORT,() => {
+        console.log(`Server listening on port ${PORT}`);
+    })
+})();
