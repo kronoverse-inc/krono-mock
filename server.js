@@ -229,6 +229,21 @@ wss.on('connection', (ws, req) => {
     });
 });
 
+app.get('/wallet', async (req, res, next) => {
+
+    let indexFile = "index.html";
+    let fileToServe = req.query["filename"] == undefined ? indexFile : req.query["filename"];
+    let pathToFile = fs.existsSync(path.join(__dirname, 'ks-client', fileToServe)) 
+        ? path.join(__dirname, 'ks-client', fileToServe): path.join(__dirname, 'ks-client', indexFile)
+
+    let data = fs.readFileSync(pathToFile);
+    let cType = mime.lookup(pathToFile);
+
+    res.writeHeader(200, { "Content-Type": cType });
+    res.write(data);
+    res.end();
+});
+
 app.get('/txns', async (req, res, next) => {
     res.json(await Promise.all(txns.map(txid => server.blockchain.fetch(txid))));
 });
