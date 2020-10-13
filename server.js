@@ -229,10 +229,10 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-app.get('/wallet', async (req, res, next) => {
-
+app.get('/wallet/:filename?', async (req, res, next) => {
     let indexFile = "index.html";
-    let fileToServe = req.query["filename"] == undefined ? indexFile : req.query["filename"];
+    let fileToServe = req.params.filename ? req.params.filename : indexFile;
+    console.log('File:', fileToServe);
     let pathToFile = fs.existsSync(path.join(__dirname, 'ks-client', fileToServe)) 
         ? path.join(__dirname, 'ks-client', fileToServe): path.join(__dirname, 'ks-client', indexFile)
 
