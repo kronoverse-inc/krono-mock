@@ -135,7 +135,20 @@ app.get('/jigs', async (req, res, next) => {
     }
 });
 
-app.get('/jigs/:address', async (req, res, next) => {
+app.get('/jigs/:loc', async (req, res, next) => {
+    try {
+        const { loc } = req.params;
+        if(jigs.has(loc)) {
+            return res.json(jigs.get(loc));
+        }
+        res.sendStatus(404);
+    } catch (e) {
+        next(e);
+    }
+});
+
+
+app.get('/jigs/address/:address', async (req, res, next) => {
     try {
         const { address } = req.params;
         const script = Address.fromString(address).toTxOutScript().toHex();
