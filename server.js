@@ -269,7 +269,7 @@ app.use('/wallet',express.static(path.join(__dirname, 'ks-client')), (req,res,ne
 }); */
 
 app.get('/txns', async (req, res, next) => {
-    res.json(await Promise.all(txns.map(txid => server.blockchain.fetch(txid))));
+    res.json(await Promise.all(txns.map(txid => blockchain.fetch(txid))));
 });
 
 app.post('/:agentId', async (req, res, next) => {
