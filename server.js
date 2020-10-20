@@ -10,7 +10,6 @@ const Mockchain = require('./mockchain');
 const Run = require('@kronoverse/tools/lib/run');
 const { SignedMessage } = require('@kronoverse/tools/lib/signed-message');
 
-const agents = new Map();
 const events = new EventEmitter();
 events.setMaxListeners(100);
 const jigs = new Map();
@@ -122,7 +121,7 @@ app.get('/fund/:address', async (req, res, next) => {
 });
 
 app.get('/agents/:realm/:agentId', (req, res) => {
-    const agent = agents.get(req.params.agentId);
+    const agent = exp.agents[req.params.agentId];
     if (!agent) throw new NotFound();
     res.json(agent);
 });
@@ -253,32 +252,18 @@ app.use('/wallet',express.static(path.join(__dirname, 'ks-client')), (req,res,ne
     res.end();
 });
 
-/* app.get('/wallet', async (req, res, next) => {
-    let indexFile = "index.html";
-    let fileToServe = req.params.filename ? req.params.filename : indexFile;
-    console.log('File:', fileToServe);
-    let pathToFile = fs.existsSync(path.join(__dirname, 'ks-client', fileToServe)) 
-        ? path.join(__dirname, 'ks-client', fileToServe): path.join(__dirname, 'ks-client', indexFile)
-
-    let data = fs.readFileSync(pathToFile);
-    let cType = mime.lookup(pathToFile);
-
-    res.writeHeader(200, { "Content-Type": cType });
-    res.write(data);
-    res.end();
-}); */
-
 app.get('/txns', async (req, res, next) => {
     res.json(await Promise.all(txns.map(txid => blockchain.fetch(txid))));
 });
 
 app.post('/:agentId', async (req, res, next) => {
-    events.emit('agentMsg', req.params.agentId, req.body, (err, result) => {
-        if(err) {
-            return next(err);
-        }
-        res.json(result || null);
-    })
+    const agent = exp.agents[req.params.agentId];
+    if(agent && agent.onMessage) {
+        const result = await agent.onMessage(req.body);
+        res.json(result);
+    } else {
+        res.sendStatus(204);
+    }
 })
 
 app.use((err, req, res, next) => {
@@ -304,7 +289,7 @@ async function close() {
 
 const exp = module.exports = {
     debug: true,
-    agents,
+    agents: {},
     blockchain,
     events,
     listen,
